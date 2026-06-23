@@ -45,7 +45,7 @@
         <div>
           <p class="eyebrow">Mini wiki • searchable index</p>
           <h1 id="pageTitle">CardFantasy Codex</h1>
-          <p class="hero-copy">Search extracted cards, sort by weather, view odds and abilities, and test Shiny / Diamond / Radiant modifier combinations on the selected card.</p>
+          <p class="hero-copy">Search extracted cards, sort by weather, view HP / ATK / odds / abilities, and test Shiny / Diamond / Radiant border combinations on the selected card.</p>
         </div>
         <div class="hero-stats" aria-label="Library stats">
           <div><strong id="totalCards">0</strong><span>Cards</span></div>
@@ -88,12 +88,16 @@
             <p id="previewMeta" class="preview-meta">Click any card to view details.</p>
 
             <div class="modifier-box">
-              <h3>Card Modifiers</h3>
-              <p>Select multiple at once. The border rotates with the selected modifier colors and the odds update below.</p>
+              <h3>Borders / Modifiers</h3>
+              <p>Select multiple at once. HP, ATK, and odds update from the selected border modifiers. Weather cards also apply their weather multiplier.</p>
               <div class="modifier-controls" id="modifierControls"></div>
             </div>
 
             <dl class="stat-list">
+              <div><dt>Base HP</dt><dd id="previewBaseHP">—</dd></div>
+              <div><dt>Base ATK</dt><dd id="previewBaseATK">—</dd></div>
+              <div><dt>Current HP</dt><dd id="previewCurrentHP">—</dd></div>
+              <div><dt>Current ATK</dt><dd id="previewCurrentATK">—</dd></div>
               <div><dt>Base Odds</dt><dd id="previewBaseOdds">—</dd></div>
               <div><dt>Current Odds</dt><dd id="previewCurrentOdds">—</dd></div>
               <div><dt>Ability</dt><dd id="previewAbility">—</dd></div>
