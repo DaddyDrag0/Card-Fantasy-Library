@@ -1,0 +1,96 @@
+/* 12 full page layout presets loaded after the base styles. */
+
+body .preset-toolbar { padding: 12px; }
+body .preset-option { min-width: 82px; text-align: center; }
+
+/* 1 Tome */
+body.preset-tome .site-shell { width: min(1420px, 100%); }
+body.preset-tome .hero-card { min-height: 210px; }
+body.preset-tome .content-grid { grid-template-columns: minmax(0, 1fr) 360px; }
+
+/* 2 Topbar */
+body.preset-topbar .site-shell { width: min(1560px, 100%); }
+body.preset-topbar .hero-card { min-height: 150px; padding: 26px 32px; }
+body.preset-topbar .content-grid { grid-template-columns: minmax(0, 1.45fr) 340px; }
+
+/* 3 Library */
+body.preset-library .content-grid { grid-template-columns: 1fr; }
+body.preset-library .preview-area { order: 2; }
+body.preset-library .index-area { order: 1; }
+body.preset-library .preview-card { position: static; display: grid; grid-template-columns: 220px minmax(280px, 1fr) minmax(280px, .8fr); gap: 18px 24px; align-items: start; }
+body.preset-library .preview-card > .eyebrow { grid-column: 1 / -1; }
+body.preset-library .preview-art { grid-column: 1; grid-row: 2 / span 4; height: 220px; margin: 0; }
+body.preset-library .preview-card h2, body.preset-library .preview-meta, body.preset-library .modifier-box { grid-column: 2; }
+body.preset-library .stat-list, body.preset-library .primary-action { grid-column: 3; }
+
+/* 4 Preview */
+body.preset-preview .content-grid { grid-template-columns: 410px minmax(0, 1fr); }
+body.preset-preview .preview-area { order: -1; }
+body.preset-preview .preview-card { border-radius: 30px; top: 28px; }
+body.preset-preview .preview-art { height: 270px; }
+body.preset-preview .hero-card { min-height: 135px; padding: 22px 28px; }
+
+/* 5 Red archive */
+body.preset-blood .site-shell { width: min(1380px, 100%); }
+body.preset-blood .hero-card { min-height: 120px; padding: 22px 26px; border-radius: 14px; }
+body.preset-blood .content-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+body.preset-blood .card-tile, body.preset-blood .index-area, body.preset-blood .preview-card { border-radius: 12px; }
+body.preset-blood .card-art { display: none; }
+
+/* 6 Frost ledger */
+body.preset-frost .hero-card { min-height: 130px; }
+body.preset-frost .content-grid { grid-template-columns: minmax(0, 1.25fr) 370px; }
+body.preset-frost .index-area, body.preset-frost .preview-card { backdrop-filter: blur(12px); }
+
+/* 7 Forest wide */
+body.preset-forest .content-grid { grid-template-columns: 1fr; }
+body.preset-forest .preview-card { position: static; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px 24px; }
+body.preset-forest .preview-card > .eyebrow { grid-column: 1 / -1; }
+body.preset-forest .preview-art { grid-row: 2 / span 4; height: 240px; margin: 0; }
+body.preset-forest .stat-list, body.preset-forest .primary-action { grid-column: 1 / -1; }
+
+/* 8 Void narrow rail */
+body.preset-void .site-shell { grid-template-columns: 86px minmax(0, 1fr); width: min(1500px, 100%); }
+body.preset-void .left-rail { padding: 16px 10px; }
+body.preset-void .brand { grid-template-columns: 1fr; text-align: center; justify-items: center; }
+body.preset-void .brand strong, body.preset-void .brand small, body.preset-void .rail-link span:last-child { display: none; }
+body.preset-void .rail-link { grid-template-columns: 1fr; justify-items: center; }
+body.preset-void .content-grid { grid-template-columns: 390px minmax(0, 1fr); }
+body.preset-void .preview-area { order: -1; }
+
+/* 9 Ember rows */
+body.preset-ember .hero-card { min-height: 115px; padding: 20px 24px; }
+body.preset-ember .content-grid { grid-template-columns: minmax(0, 1.1fr) 330px; }
+body.preset-ember .card-tile { border-radius: 8px; }
+
+/* 10 Royal centered */
+body.preset-royal .hero-card { text-align: center; display: grid; justify-items: center; gap: 18px; }
+body.preset-royal .hero-stats { min-width: 420px; }
+body.preset-royal .content-grid { grid-template-columns: minmax(0, 1fr) 380px; }
+
+/* 11 Minimal */
+body.preset-minimal .site-shell { width: min(1640px, 100%); padding: 20px; }
+body.preset-minimal .hero-card, body.preset-minimal .left-rail, body.preset-minimal .main-panel, body.preset-minimal .index-area, body.preset-minimal .preview-card { box-shadow: none !important; }
+body.preset-minimal .hero-card { padding: 20px 22px; min-height: 100px; }
+body.preset-minimal .hero-copy, body.preset-minimal .hero-stats { display: none; }
+body.preset-minimal .content-grid { grid-template-columns: 1fr; }
+body.preset-minimal .preview-card { position: static; }
+
+/* 12 Bone right nav */
+body.preset-bone .site-shell { grid-template-columns: minmax(0, 1fr) 234px; width: min(1420px, 100%); }
+body.preset-bone .left-rail { grid-column: 2; grid-row: 1; }
+body.preset-bone .main-panel { grid-column: 1; grid-row: 1; }
+body.preset-bone .content-grid { grid-template-columns: minmax(0, 1fr) 340px; }
+body.preset-bone .hero-card { min-height: 180px; }
+
+@media (max-width: 1220px) {
+  body.preset-preview .content-grid, body.preset-void .content-grid, body.preset-tome .content-grid, body.preset-topbar .content-grid, body.preset-blood .content-grid, body.preset-frost .content-grid, body.preset-ember .content-grid, body.preset-royal .content-grid, body.preset-bone .content-grid { grid-template-columns: 1fr; }
+  body.preset-preview .preview-area, body.preset-void .preview-area { order: 0; }
+  body.preset-bone .site-shell, body.preset-void .site-shell { grid-template-columns: 1fr; }
+  body.preset-bone .left-rail, body.preset-bone .main-panel { grid-column: auto; grid-row: auto; }
+}
+
+@media (max-width: 900px) {
+  body.preset-library .preview-card, body.preset-forest .preview-card { display: block; }
+  body.preset-library .preview-art, body.preset-forest .preview-art { margin: 14px 0 22px; }
+}
