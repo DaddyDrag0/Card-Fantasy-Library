@@ -17,36 +17,33 @@
         <span class="brand-mark">CF</span>
         <span>
           <strong>Codex</strong>
-          <small>CardFantasy Library</small>
+          <small>CardFantasy RNG</small>
         </span>
       </a>
 
       <nav class="rail-nav" id="sectionNav">
         <button class="rail-link is-active" type="button" data-section="cards">
           <span class="rail-icon">✦</span>
-          <span>Cards</span>
+          <span>All Cards</span>
         </button>
-        <button class="rail-link" type="button" data-section="borders">
-          <span class="rail-icon">◇</span>
-          <span>Borders</span>
-        </button>
-        <button class="rail-link" type="button" data-section="sets">
+        <button class="rail-link" type="button" data-section="weather">
           <span class="rail-icon">☽</span>
-          <span>Sets</span>
+          <span>Weather Cards</span>
         </button>
-        <button class="rail-link" type="button" data-section="potions">
-          <span class="rail-icon">✚</span>
-          <span>Potions</span>
+        <button class="rail-link" type="button" data-section="variants">
+          <span class="rail-icon">◇</span>
+          <span>Variants</span>
         </button>
-        <button class="rail-link" type="button" data-section="guides">
-          <span class="rail-icon">?</span>
-          <span>Guides</span>
+        <button class="rail-link" type="button" data-section="calculator">
+          <span class="rail-icon">%</span>
+          <span>Chance Calc</span>
         </button>
       </nav>
 
       <div class="rail-note">
-        <span>Placeholder build</span>
-        <strong>Data can be swapped later</strong>
+        <span>Current build</span>
+        <strong>Real card data loaded</strong>
+        <small>Relics, potions, charms, classes, and gamepasses are not shown.</small>
       </div>
     </aside>
 
@@ -55,12 +52,12 @@
         <div>
           <p class="eyebrow">Mini wiki • searchable index</p>
           <h1 id="pageTitle">CardFantasy Codex</h1>
-          <p class="hero-copy">A dark fantasy card library layout with left-side areas, searchable cards, rarity filters, and a selected card preview.</p>
+          <p class="hero-copy">Search every extracted card, view odds, ability info, image IDs, weather sources, and the independent Shiny / Diamond / Radiant variant system.</p>
         </div>
-        <div class="hero-stats" aria-label="Placeholder library stats">
+        <div class="hero-stats" aria-label="Library stats">
           <div><strong id="totalCards">0</strong><span>Cards</span></div>
-          <div><strong id="totalBorders">0</strong><span>Borders</span></div>
-          <div><strong id="totalSets">0</strong><span>Sets</span></div>
+          <div><strong id="totalWeather">0</strong><span>Weather</span></div>
+          <div><strong id="totalVariants">0</strong><span>Variants</span></div>
         </div>
       </section>
 
@@ -69,16 +66,19 @@
           <div class="toolbar">
             <label class="search-wrap" for="searchInput">
               <span>⌕</span>
-              <input id="searchInput" type="search" placeholder="Search name, rarity, stat, source, border..." autocomplete="off" />
+              <input id="searchInput" type="search" placeholder="Search name, ability, odds, weather, image ID..." autocomplete="off" />
             </label>
 
-            <div class="filter-pills" id="rarityFilters" aria-label="Rarity filters">
-              <button class="filter-pill is-active" type="button" data-rarity="all">All</button>
-              <button class="filter-pill" type="button" data-rarity="Common">Common</button>
-              <button class="filter-pill" type="button" data-rarity="Rare">Rare</button>
-              <button class="filter-pill" type="button" data-rarity="Epic">Epic</button>
-              <button class="filter-pill" type="button" data-rarity="Legendary">Legendary</button>
-              <button class="filter-pill" type="button" data-rarity="Mythic">Mythic</button>
+            <div class="filter-pills" id="tierFilters" aria-label="Odds tier filters">
+              <button class="filter-pill is-active" type="button" data-tier="all">All</button>
+              <button class="filter-pill" type="button" data-tier="Frequent">Frequent</button>
+              <button class="filter-pill" type="button" data-tier="Uncommon">Uncommon</button>
+              <button class="filter-pill" type="button" data-tier="Rare">Rare</button>
+              <button class="filter-pill" type="button" data-tier="Epic">Epic</button>
+              <button class="filter-pill" type="button" data-tier="Legendary">Legendary</button>
+              <button class="filter-pill" type="button" data-tier="Mythic">Mythic</button>
+              <button class="filter-pill" type="button" data-tier="Secret">Secret</button>
+              <button class="filter-pill" type="button" data-tier="Hidden">Hidden</button>
             </div>
           </div>
 
@@ -100,14 +100,20 @@
               <span>✦</span>
             </div>
             <h2 id="previewName">Select a card</h2>
-            <p id="previewMeta" class="preview-meta">Click any card to view placeholder details.</p>
+            <p id="previewMeta" class="preview-meta">Click any card to view details.</p>
 
             <dl class="stat-list">
-              <div><dt>Main Stat</dt><dd id="previewStat">—</dd></div>
+              <div><dt>Odds</dt><dd id="previewOdds">—</dd></div>
+              <div><dt>Ability</dt><dd id="previewAbility">—</dd></div>
               <div><dt>Source</dt><dd id="previewSource">—</dd></div>
-              <div><dt>Rarity</dt><dd id="previewRarity">—</dd></div>
-              <div><dt>Borders</dt><dd id="previewBorders">—</dd></div>
+              <div><dt>Image ID</dt><dd id="previewImageId">—</dd></div>
             </dl>
+
+            <div class="variant-box">
+              <h3>Variants</h3>
+              <p>Shiny, Diamond, and Radiant roll separately, so one card can have multiple at once.</p>
+              <div class="variant-chips" id="previewVariants"></div>
+            </div>
 
             <button class="primary-action" type="button" id="copyCardButton">Copy card name</button>
           </div>
