@@ -8,6 +8,8 @@ const fallbackData = {
   cards: []
 };
 
+const NEUTRAL_CARD_COLOR = "#8c8170";
+
 const state = {
   data: fallbackData,
   cards: [],
@@ -15,7 +17,8 @@ const state = {
   activeWeather: "all",
   query: "",
   selectedId: null,
-  selectedModifiers: new Set()
+  selectedModifiers: new Set(),
+  thumbnailCache: new Map()
 };
 
 const cardGrid = document.querySelector("#cardGrid");
@@ -31,7 +34,6 @@ const previewBaseOdds = document.querySelector("#previewBaseOdds");
 const previewCurrentOdds = document.querySelector("#previewCurrentOdds");
 const previewAbility = document.querySelector("#previewAbility");
 const previewSource = document.querySelector("#previewSource");
-const previewImageId = document.querySelector("#previewImageId");
 const modifierControls = document.querySelector("#modifierControls");
 const copyCardButton = document.querySelector("#copyCardButton");
 const weatherFilters = document.querySelector("#weatherFilters");
@@ -81,34 +83,61 @@ function formatOdds(value) {
   return `1/${formatNumber(value)}`;
 }
 
-function robloxImageCandidates(imageId, size = 420) {
-  if (!imageId) return [];
-  const id = encodeURIComponent(imageId);
-  return [
-    `https://assetdelivery.roblox.com/v1/asset?id=${id}`,
-    `https://www.roblox.com/asset-thumbnail/image?assetId=${id}&width=${size}&height=${size}&format=png`
-  ];
+async function fetchRobloxThumbnail(imageId) {
+  const key = String(imageId || "");
+  if (!key) return "";
+  if (state.thumbnailCache.has(key)) return state.thumbnailCache.get(key);
+
+  const endpoint = `https://thumbnails.roblox.com/v1/assets?assetIds=${encodeURIComponent(key)}&returnPolicy=PlaceHolder&size=420x420&format=Png&isCircular=false`;
+
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) throw new Error("thumbnail request failed");
+    const json = await response.json();
+    const url = json?.data?.[0]?.imageUrl || "";
+    state.thumbnailCache.set(key, url);
+    return url;
+  } catch (error) {
+    console.warn("Could not load Roblox thumbnail", imageId, error);
+    state.thumbnailCache.set(key, "");
+    return "";
+  }
 }
 
-window.tryNextImage = function tryNextImage(img) {
-  const candidates = (img.dataset.candidates || "").split("|").filter(Boolean);
-  const nextIndex = Number(img.dataset.fallbackIndex || 0) + 1;
+function imageSlotHTML(imageId, size = "card") {
+  if (!imageId) return `<span class="fallback-symbol">✦</span>`;
+  return `<span class="fallback-symbol">✦</span><span class="image-loader" data-image-id="${escapeHTML(imageId)}" data-size="${escapeHTML(size)}"></span>`;
+}
 
-  if (candidates[nextIndex]) {
-    img.dataset.fallbackIndex = String(nextIndex);
-    img.src = candidates[nextIndex];
-    return;
-  }
+async function hydrateImages(root = document) {
+  const slots = [...root.querySelectorAll(".image-loader[data-image-id]")];
 
-  const parent = img.parentElement;
-  if (parent) parent.classList.remove("has-image");
-  img.remove();
-};
+  await Promise.all(slots.map(async (slot) => {
+    const imageId = slot.dataset.imageId;
+    const parent = slot.parentElement;
+    if (!parent || parent.querySelector("img")) return;
 
-function imageHTML(imageId, size = 420) {
-  const candidates = robloxImageCandidates(imageId, size);
-  if (!candidates.length) return "";
-  return `<img src="${escapeHTML(candidates[0])}" data-candidates="${escapeHTML(candidates.join("|"))}" data-fallback-index="0" alt="" loading="lazy" onerror="tryNextImage(this)">`;
+    const url = await fetchRobloxThumbnail(imageId);
+    if (!url) {
+      parent.classList.remove("has-image");
+      slot.remove();
+      return;
+    }
+
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    img.loading = "lazy";
+    img.addEventListener("error", () => {
+      parent.classList.remove("has-image", "is-loaded");
+      img.remove();
+      slot.remove();
+    });
+
+    parent.prepend(img);
+    parent.classList.add("has-image", "is-loaded");
+    slot.remove();
+  }));
 }
 
 function getSearchBlob(item) {
@@ -122,7 +151,6 @@ function getSearchBlob(item) {
     item.abilityDescription,
     item.source,
     item.weather || "Base",
-    item.imageId,
     ...(item.variants || [])
   ].join(" "));
 }
@@ -192,16 +220,14 @@ function renderWeatherFilters() {
 function cardTileHTML(item) {
   const isSelected = item.id === state.selectedId;
   const artClass = item.imageId ? "card-art has-image" : "card-art";
-  const image = imageHTML(item.imageId, 420);
   const weather = item.weather ? `<span class="card-tag">${escapeHTML(item.weather)}</span>` : "";
   const modifierClass = isSelected && state.selectedModifiers.size ? "has-modifiers" : "";
   const modifierStyle = isSelected && state.selectedModifiers.size ? `--modifier-colors:${escapeHTML(modifierColorList())};` : "";
 
   return `
-    <button class="card-tile ${isSelected ? "is-selected" : ""} ${modifierClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${escapeHTML(item.color || "#d8b24e")}; ${modifierStyle}">
+    <button class="card-tile ${isSelected ? "is-selected" : ""} ${modifierClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${NEUTRAL_CARD_COLOR}; ${modifierStyle}">
       <span class="${artClass}" aria-hidden="true">
-        ${image}
-        <span class="fallback-symbol">✦</span>
+        ${imageSlotHTML(item.imageId, "card")}
       </span>
       <span class="tile-topline">
         ${weather}
@@ -226,6 +252,7 @@ function renderIndex() {
   }
 
   cardGrid.innerHTML = items.map(cardTileHTML).join("");
+  hydrateImages(cardGrid);
 }
 
 function renderCalculatorSoon() {
@@ -251,7 +278,6 @@ function renderCalculatorSoon() {
   previewCurrentOdds.textContent = "Later";
   previewAbility.textContent = "Card odds + modifiers";
   previewSource.textContent = "Not built yet";
-  previewImageId.textContent = "—";
   renderModifierControls();
 }
 
@@ -293,10 +319,9 @@ function updatePreview() {
   const item = getSelectedCard();
   if (!item) return;
 
-  const image = imageHTML(item.imageId, 720);
-  previewCard.style.setProperty("--preview-color", item.color || "#d8b24e");
+  previewCard.style.setProperty("--preview-color", NEUTRAL_CARD_COLOR);
   previewArt.className = item.imageId ? "preview-art has-image" : "preview-art";
-  previewArt.innerHTML = `${image}<span class="fallback-symbol">✦</span>`;
+  previewArt.innerHTML = imageSlotHTML(item.imageId, "preview");
 
   setModifierBorderVars(previewCard);
   setModifierBorderVars(previewArt);
@@ -310,8 +335,8 @@ function updatePreview() {
   previewCurrentOdds.textContent = formatOdds(currentOdds(item));
   previewAbility.textContent = titleCaseAbility(item.ability || item.abilityType);
   previewSource.textContent = item.weather ? `${item.weather} weather` : item.source || "Base roll";
-  previewImageId.textContent = item.imageId || "—";
   renderModifierControls();
+  hydrateImages(previewCard);
 }
 
 function selectItem(id) {
