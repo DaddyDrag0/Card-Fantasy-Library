@@ -17,8 +17,7 @@ const state = {
   activeWeather: "all",
   query: "",
   selectedId: null,
-  selectedModifiers: new Set(),
-  thumbnailCache: new Map()
+  selectedModifiers: new Set()
 };
 
 const cardGrid = document.querySelector("#cardGrid");
@@ -83,61 +82,43 @@ function formatOdds(value) {
   return `1/${formatNumber(value)}`;
 }
 
-async function fetchRobloxThumbnail(imageId) {
-  const key = String(imageId || "");
-  if (!key) return "";
-  if (state.thumbnailCache.has(key)) return state.thumbnailCache.get(key);
-
-  const endpoint = `https://thumbnails.roblox.com/v1/assets?assetIds=${encodeURIComponent(key)}&returnPolicy=PlaceHolder&size=420x420&format=Png&isCircular=false`;
-
-  try {
-    const response = await fetch(endpoint);
-    if (!response.ok) throw new Error("thumbnail request failed");
-    const json = await response.json();
-    const url = json?.data?.[0]?.imageUrl || "";
-    state.thumbnailCache.set(key, url);
-    return url;
-  } catch (error) {
-    console.warn("Could not load Roblox thumbnail", imageId, error);
-    state.thumbnailCache.set(key, "");
-    return "";
-  }
+function cardSymbol(item) {
+  const text = `${item.name || ""} ${item.ability || ""} ${item.abilityType || ""} ${item.weather || ""}`.toLowerCase();
+  if (text.includes("dragon") || text.includes("wyvern") || text.includes("drake")) return "◆";
+  if (text.includes("mage") || text.includes("witch") || text.includes("spell") || text.includes("arcane")) return "✦";
+  if (text.includes("king") || text.includes("lord") || text.includes("ruler") || text.includes("sovereign")) return "♛";
+  if (text.includes("skeleton") || text.includes("bone") || text.includes("grave") || text.includes("death")) return "☠";
+  if (text.includes("moon") || text.includes("lunar") || text.includes("night")) return "☽";
+  if (text.includes("sun") || text.includes("solar") || text.includes("fire") || text.includes("ember") || text.includes("phoenix")) return "☼";
+  if (text.includes("sea") || text.includes("water") || text.includes("kraken") || text.includes("deep")) return "≈";
+  if (text.includes("wolf") || text.includes("bear") || text.includes("beast") || text.includes("panther")) return "◈";
+  if (text.includes("shield") || text.includes("guardian") || text.includes("paladin") || text.includes("knight")) return "⬟";
+  if (text.includes("poison") || text.includes("shroom") || text.includes("fungal") || text.includes("slime")) return "✣";
+  return "✦";
 }
 
-function imageSlotHTML(imageId, size = "card") {
-  if (!imageId) return `<span class="fallback-symbol">✦</span>`;
-  return `<span class="fallback-symbol">✦</span><span class="image-loader" data-image-id="${escapeHTML(imageId)}" data-size="${escapeHTML(size)}"></span>`;
+function cardAccent(item) {
+  const source = getWeatherName(item).toLowerCase();
+  const name = `${item.name || ""} ${item.ability || ""} ${item.abilityType || ""}`.toLowerCase();
+
+  if (source.includes("blizzard") || name.includes("ice") || name.includes("frost")) return "#58bff0";
+  if (source.includes("blood") || name.includes("blood") || name.includes("vampire")) return "#d95858";
+  if (source.includes("heat") || name.includes("fire") || name.includes("ember") || name.includes("phoenix")) return "#f08a45";
+  if (source.includes("orc")) return "#7aa15a";
+  if (source.includes("bandit")) return "#c19355";
+  if (source.includes("slime") || name.includes("shroom") || name.includes("poison")) return "#66c477";
+  if (source.includes("valhalla") || name.includes("heaven")) return "#e0c46a";
+  if (name.includes("void") || name.includes("rift") || name.includes("abyss")) return "#9d63e6";
+  if (name.includes("moon") || name.includes("lunar") || name.includes("night")) return "#8f96ff";
+  return "#b69a62";
 }
 
-async function hydrateImages(root = document) {
-  const slots = [...root.querySelectorAll(".image-loader[data-image-id]")];
-
-  await Promise.all(slots.map(async (slot) => {
-    const imageId = slot.dataset.imageId;
-    const parent = slot.parentElement;
-    if (!parent || parent.querySelector("img")) return;
-
-    const url = await fetchRobloxThumbnail(imageId);
-    if (!url) {
-      parent.classList.remove("has-image");
-      slot.remove();
-      return;
-    }
-
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = "";
-    img.loading = "lazy";
-    img.addEventListener("error", () => {
-      parent.classList.remove("has-image", "is-loaded");
-      img.remove();
-      slot.remove();
-    });
-
-    parent.prepend(img);
-    parent.classList.add("has-image", "is-loaded");
-    slot.remove();
-  }));
+function generatedArtHTML(item) {
+  return `
+    <span class="generated-vignette"></span>
+    <span class="generated-rune">${escapeHTML(cardSymbol(item))}</span>
+    <span class="generated-name">${escapeHTML((item.name || "?").slice(0, 1))}</span>
+  `;
 }
 
 function getSearchBlob(item) {
@@ -219,15 +200,14 @@ function renderWeatherFilters() {
 
 function cardTileHTML(item) {
   const isSelected = item.id === state.selectedId;
-  const artClass = item.imageId ? "card-art has-image" : "card-art";
   const weather = item.weather ? `<span class="card-tag">${escapeHTML(item.weather)}</span>` : "";
   const modifierClass = isSelected && state.selectedModifiers.size ? "has-modifiers" : "";
   const modifierStyle = isSelected && state.selectedModifiers.size ? `--modifier-colors:${escapeHTML(modifierColorList())};` : "";
 
   return `
-    <button class="card-tile ${isSelected ? "is-selected" : ""} ${modifierClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${NEUTRAL_CARD_COLOR}; ${modifierStyle}">
-      <span class="${artClass}" aria-hidden="true">
-        ${imageSlotHTML(item.imageId, "card")}
+    <button class="card-tile ${isSelected ? "is-selected" : ""} ${modifierClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${NEUTRAL_CARD_COLOR}; --card-accent: ${escapeHTML(cardAccent(item))}; ${modifierStyle}">
+      <span class="card-art generated-art" aria-hidden="true">
+        ${generatedArtHTML(item)}
       </span>
       <span class="tile-topline">
         ${weather}
@@ -252,7 +232,6 @@ function renderIndex() {
   }
 
   cardGrid.innerHTML = items.map(cardTileHTML).join("");
-  hydrateImages(cardGrid);
 }
 
 function renderCalculatorSoon() {
@@ -270,8 +249,8 @@ function renderCalculatorSoon() {
   `;
 
   previewCard.classList.remove("has-modifiers");
-  previewArt.className = "preview-art";
-  previewArt.innerHTML = `<span class="fallback-symbol">%</span>`;
+  previewArt.className = "preview-art generated-art";
+  previewArt.innerHTML = `<span class="generated-vignette"></span><span class="generated-rune">%</span>`;
   previewName.textContent = "Chance Calculator";
   previewMeta.textContent = "Reserved for the next feature after the card index.";
   previewBaseOdds.textContent = "Later";
@@ -320,8 +299,9 @@ function updatePreview() {
   if (!item) return;
 
   previewCard.style.setProperty("--preview-color", NEUTRAL_CARD_COLOR);
-  previewArt.className = item.imageId ? "preview-art has-image" : "preview-art";
-  previewArt.innerHTML = imageSlotHTML(item.imageId, "preview");
+  previewCard.style.setProperty("--card-accent", cardAccent(item));
+  previewArt.className = "preview-art generated-art";
+  previewArt.innerHTML = generatedArtHTML(item);
 
   setModifierBorderVars(previewCard);
   setModifierBorderVars(previewArt);
@@ -336,7 +316,6 @@ function updatePreview() {
   previewAbility.textContent = titleCaseAbility(item.ability || item.abilityType);
   previewSource.textContent = item.weather ? `${item.weather} weather` : item.source || "Base roll";
   renderModifierControls();
-  hydrateImages(previewCard);
 }
 
 function selectItem(id) {
