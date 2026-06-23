@@ -10,6 +10,7 @@ const NEUTRAL_CARD_COLOR = "#8c8170";
 const BORDER_NAME_ORDER = ["Shiny", "Diamond", "Radiant"];
 const CARD_IMAGE_EXTENSIONS = ["png", "webp", "jpg", "jpeg"];
 const MOBILE_PREVIEW_QUERY = "(max-width: 820px)";
+const MAX_COMPARE_CARDS = 4;
 
 const state = {
   data: fallbackData,
@@ -17,13 +18,20 @@ const state = {
   activeSection: "index",
   activeWeather: "all",
   query: "",
+  sortOrder: "lowest",
   selectedId: null,
-  selectedBorders: new Set()
+  selectedBorders: new Set(),
+  compareMode: false,
+  compareIds: new Set()
 };
 
 const cardGrid = document.querySelector("#cardGrid");
 const cardToolbar = document.querySelector("#cardToolbar");
 const searchInput = document.querySelector("#searchInput");
+const sortSelect = document.querySelector("#sortSelect");
+const compareModeButton = document.querySelector("#compareModeButton");
+const clearCompareButton = document.querySelector("#clearCompareButton");
+const compareTray = document.querySelector("#compareTray");
 const resultCount = document.querySelector("#resultCount");
 const activeSectionTitle = document.querySelector("#activeSectionTitle");
 const previewArea = document.querySelector("#previewArea");
@@ -41,8 +49,12 @@ const previewAbility = document.querySelector("#previewAbility");
 const previewSource = document.querySelector("#previewSource");
 const modifierControls = document.querySelector("#modifierControls");
 const copyCardButton = document.querySelector("#copyCardButton");
+const viewDetailsButton = document.querySelector("#viewDetailsButton");
 const previewClose = document.querySelector("#previewClose");
 const weatherFilters = document.querySelector("#weatherFilters");
+const detailModal = document.querySelector("#detailModal");
+const detailClose = document.querySelector("#detailClose");
+const detailContent = document.querySelector("#detailContent");
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -69,7 +81,11 @@ function setIndexPanelMode(isIndex) {
   document.body.classList.toggle("section-calculator", !isIndex);
   cardToolbar?.classList.toggle("is-hidden", !isIndex);
   if (previewArea) previewArea.hidden = !isIndex;
-  if (!isIndex) closePreviewModal();
+  if (compareTray) compareTray.hidden = !isIndex || state.compareIds.size === 0;
+  if (!isIndex) {
+    closePreviewModal();
+    closeDetailModal();
+  }
 }
 
 function openPreviewModal() {
@@ -79,6 +95,21 @@ function openPreviewModal() {
 
 function closePreviewModal() {
   document.body.classList.remove("preview-open");
+}
+
+function openDetailModal() {
+  const card = getSelectedCard();
+  if (!card || !detailModal || !detailContent) return;
+  detailContent.innerHTML = detailHTML(card);
+  detailModal.classList.add("is-open");
+  detailModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("detail-open");
+}
+
+function closeDetailModal() {
+  detailModal?.classList.remove("is-open");
+  detailModal?.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("detail-open");
 }
 
 function titleCaseAbility(value) {
@@ -178,10 +209,16 @@ function getSearchBlob(card) {
 
 function getVisibleCards() {
   const query = normalize(state.query);
-  return state.cards.filter((card) => {
+  const filtered = state.cards.filter((card) => {
     const matchesWeather = state.activeWeather === "all" || getWeatherName(card) === state.activeWeather;
     const matchesQuery = !query || getSearchBlob(card).includes(query);
     return matchesWeather && matchesQuery;
+  });
+
+  return [...filtered].sort((a, b) => {
+    const left = Number(a.odds || 0);
+    const right = Number(b.odds || 0);
+    return state.sortOrder === "highest" ? right - left : left - right;
   });
 }
 
@@ -255,20 +292,96 @@ function renderWeatherFilters() {
 
 function cardTileHTML(card) {
   const isSelected = card.id === state.selectedId;
+  const isCompared = state.compareIds.has(card.id);
   const weather = card.weather ? `<span class="card-tag">${escapeHTML(card.weather)}</span>` : "";
   const borderClass = isSelected && state.selectedBorders.size ? "has-modifiers" : "";
   const borderStyle = isSelected && state.selectedBorders.size ? `--modifier-colors:${escapeHTML(borderColorList())};` : "";
-  const stats = cardStats(card, false);
+  const stats = cardStats(card, isSelected);
 
   return `
-    <button class="card-tile ${isSelected ? "is-selected" : ""} ${borderClass}" type="button" data-id="${escapeHTML(card.id)}" style="--rarity-color:${NEUTRAL_CARD_COLOR}; --card-accent:${escapeHTML(cardAccent(card))}; ${borderStyle}">
+    <button class="card-tile ${isSelected ? "is-selected" : ""} ${isCompared ? "is-compared" : ""} ${state.compareMode ? "is-compare-mode" : ""} ${borderClass}" type="button" data-id="${escapeHTML(card.id)}" style="--rarity-color:${NEUTRAL_CARD_COLOR}; --card-accent:${escapeHTML(cardAccent(card))}; ${borderStyle}">
       <span class="card-art card-image-frame" aria-hidden="true">${cardImageHTML(card)}</span>
       <span class="tile-topline">${weather}</span>
+      <span class="compare-badge">${isCompared ? "Compared" : "Compare"}</span>
       <h3>${escapeHTML(card.name)}</h3>
       <span class="card-stat">HP: ${escapeHTML(formatNumber(stats.hp))} • ATK: ${escapeHTML(formatNumber(stats.atk))}</span>
       <span class="card-stat">Odds: ${escapeHTML(card.oddsLabel || formatOdds(card.odds))}</span>
       <span class="card-stat">Source: ${escapeHTML(getWeatherName(card))}</span>
     </button>
+  `;
+}
+
+function compareCardHTML(card) {
+  const stats = cardStats(card, false);
+  return `
+    <article class="compare-card" style="--card-accent:${escapeHTML(cardAccent(card))}">
+      <button class="compare-remove" type="button" data-compare-remove="${escapeHTML(card.id)}" aria-label="Remove ${escapeHTML(card.name)} from compare">×</button>
+      <h3>${escapeHTML(card.name)}</h3>
+      <dl>
+        <div><dt>HP</dt><dd>${escapeHTML(formatNumber(stats.hp))}</dd></div>
+        <div><dt>ATK</dt><dd>${escapeHTML(formatNumber(stats.atk))}</dd></div>
+        <div><dt>Odds</dt><dd>${escapeHTML(card.oddsLabel || formatOdds(card.odds))}</dd></div>
+        <div><dt>Ability</dt><dd>${escapeHTML(titleCaseAbility(card.ability || card.abilityType))}</dd></div>
+        <div><dt>Source</dt><dd>${escapeHTML(card.weather || card.source || "Base")}</dd></div>
+      </dl>
+    </article>
+  `;
+}
+
+function renderCompareTray() {
+  if (!compareTray) return;
+  const comparedCards = [...state.compareIds]
+    .map((id) => state.cards.find((card) => card.id === id))
+    .filter(Boolean);
+
+  compareTray.hidden = comparedCards.length === 0 || state.activeSection !== "index";
+  clearCompareButton.hidden = comparedCards.length === 0;
+  compareModeButton.classList.toggle("is-active", state.compareMode);
+  compareModeButton.textContent = state.compareMode ? `Comparing (${comparedCards.length}/${MAX_COMPARE_CARDS})` : "Compare cards";
+
+  if (!comparedCards.length) {
+    compareTray.innerHTML = "";
+    return;
+  }
+
+  compareTray.innerHTML = `
+    <div class="compare-head">
+      <strong>Compare Cards</strong>
+      <span>${comparedCards.length}/${MAX_COMPARE_CARDS} selected</span>
+    </div>
+    <div class="compare-grid">
+      ${comparedCards.map(compareCardHTML).join("")}
+    </div>
+  `;
+}
+
+function detailHTML(card) {
+  const selected = card.id === state.selectedId;
+  const stats = cardStats(card, selected);
+  const baseStats = cardStats(card, false);
+  const currentOdds = selected ? adjustedOdds(card, true) : Number(card.odds || 0);
+  const borderText = selectedBorderNames().length && selected ? selectedBorderNames().join(" + ") : "Base";
+
+  return `
+    <div class="detail-layout">
+      <div class="detail-art card-image-frame" aria-hidden="true">${cardImageHTML(card)}</div>
+      <div class="detail-main">
+        <p class="eyebrow">Card Details</p>
+        <h2>${escapeHTML(selectedBorderNames().length && selected ? `${selectedBorderNames().join(" ")} ${card.name}` : card.name)}</h2>
+        <p>${escapeHTML(card.abilityDescription || "—")}</p>
+        <dl class="detail-stats">
+          <div><dt>HP</dt><dd>${escapeHTML(formatNumber(stats.hp))}</dd></div>
+          <div><dt>ATK</dt><dd>${escapeHTML(formatNumber(stats.atk))}</dd></div>
+          <div><dt>Base HP</dt><dd>${escapeHTML(formatNumber(baseStats.hp))}</dd></div>
+          <div><dt>Base ATK</dt><dd>${escapeHTML(formatNumber(baseStats.atk))}</dd></div>
+          <div><dt>Base Odds</dt><dd>${escapeHTML(card.oddsLabel || formatOdds(card.odds))}</dd></div>
+          <div><dt>Current Odds</dt><dd>${escapeHTML(formatOdds(currentOdds))}</dd></div>
+          <div><dt>Borders</dt><dd>${escapeHTML(borderText)}</dd></div>
+          <div><dt>Ability</dt><dd>${escapeHTML(titleCaseAbility(card.ability || card.abilityType))}</dd></div>
+          <div><dt>Source</dt><dd>${escapeHTML(card.weather || card.source || "Base")}</dd></div>
+        </dl>
+      </div>
+    </div>
   `;
 }
 
@@ -279,6 +392,7 @@ function renderIndex() {
   resultCount.textContent = `${cards.length} result${cards.length === 1 ? "" : "s"}`;
   weatherFilters.style.display = "flex";
   cardGrid.innerHTML = cards.length ? cards.map(cardTileHTML).join("") : `<div class="empty-state">No cards match that search/filter.</div>`;
+  renderCompareTray();
 }
 
 function renderCalculatorSoon() {
@@ -337,8 +451,8 @@ function updatePreview() {
 
   previewName.textContent = displayName;
   previewMeta.textContent = card.abilityDescription || "—";
-  previewBaseHP.textContent = formatNumber(baseStats.hp);
-  previewBaseATK.textContent = formatNumber(baseStats.atk);
+  previewBaseHP.textContent = formatNumber(currentStats.hp);
+  previewBaseATK.textContent = formatNumber(currentStats.atk);
   previewCurrentHP.textContent = formatNumber(currentStats.hp);
   previewCurrentATK.textContent = formatNumber(currentStats.atk);
   previewBaseOdds.textContent = card.oddsLabel || formatOdds(card.odds);
@@ -346,6 +460,10 @@ function updatePreview() {
   previewAbility.textContent = titleCaseAbility(card.ability || card.abilityType);
   previewSource.textContent = (card.weather ? card.weather : card.source || "Base") + weatherText;
   renderBorderControls();
+
+  if (document.body.classList.contains("detail-open") && detailContent) {
+    detailContent.innerHTML = detailHTML(card);
+  }
 }
 
 function selectItem(id, shouldOpenPreview = true) {
@@ -357,10 +475,27 @@ function selectItem(id, shouldOpenPreview = true) {
   if (shouldOpenPreview) openPreviewModal();
 }
 
+function toggleCompareCard(id) {
+  if (state.compareIds.has(id)) {
+    state.compareIds.delete(id);
+  } else {
+    if (state.compareIds.size >= MAX_COMPARE_CARDS) return;
+    state.compareIds.add(id);
+  }
+  renderIndex();
+}
+
+function clearCompare() {
+  state.compareIds.clear();
+  state.compareMode = false;
+  renderIndex();
+}
+
 function setActiveSection(section) {
   state.activeSection = section;
   state.selectedId = null;
   closePreviewModal();
+  closeDetailModal();
   document.querySelectorAll(".rail-link").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.section === section);
   });
@@ -372,6 +507,25 @@ function wireEvents() {
     state.query = event.target.value;
     closePreviewModal();
     renderCurrentSection();
+  });
+
+  sortSelect?.addEventListener("change", (event) => {
+    state.sortOrder = event.target.value === "highest" ? "highest" : "lowest";
+    renderCurrentSection();
+  });
+
+  compareModeButton?.addEventListener("click", () => {
+    state.compareMode = !state.compareMode;
+    renderIndex();
+  });
+
+  clearCompareButton?.addEventListener("click", clearCompare);
+
+  compareTray?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-compare-remove]");
+    if (!removeButton) return;
+    state.compareIds.delete(removeButton.dataset.compareRemove);
+    renderIndex();
   });
 
   document.querySelector("#sectionNav").addEventListener("click", (event) => {
@@ -394,6 +548,12 @@ function wireEvents() {
   cardGrid.addEventListener("click", (event) => {
     const button = event.target.closest("[data-id]");
     if (!button) return;
+
+    if (state.compareMode) {
+      toggleCompareCard(button.dataset.id);
+      return;
+    }
+
     selectItem(button.dataset.id);
   });
 
@@ -402,6 +562,11 @@ function wireEvents() {
   });
 
   previewClose?.addEventListener("click", closePreviewModal);
+  viewDetailsButton?.addEventListener("click", openDetailModal);
+  detailClose?.addEventListener("click", closeDetailModal);
+  detailModal?.addEventListener("click", (event) => {
+    if (event.target === detailModal) closeDetailModal();
+  });
 
   modifierControls.addEventListener("click", (event) => {
     const button = event.target.closest("[data-modifier]");
@@ -430,7 +595,10 @@ function wireEvents() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closePreviewModal();
+    if (event.key === "Escape") {
+      closePreviewModal();
+      closeDetailModal();
+    }
   });
 }
 
