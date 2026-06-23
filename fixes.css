@@ -1,14 +1,4 @@
-/* Small overrides after the Roblox thumbnail/image loading update. */
-.card-art.has-image:not(.is-loaded) .fallback-symbol,
-.preview-art.has-image:not(.is-loaded) .fallback-symbol {
-  display: block;
-}
-
-.card-art.has-image.is-loaded .fallback-symbol,
-.preview-art.has-image.is-loaded .fallback-symbol {
-  display: none;
-}
-
+/* Local visual fixes: no external card images required. */
 .image-loader {
   display: none;
 }
@@ -27,4 +17,56 @@
 
 .preview-card {
   --preview-color: #8c8170;
+}
+
+.generated-art {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--card-accent, #b69a62), transparent 62%), transparent 38%),
+    radial-gradient(circle at 50% 30%, rgba(255,255,255,0.08), transparent 32%),
+    linear-gradient(145deg, #040407, #101018 70%, #050507) !important;
+}
+
+.generated-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 42%, transparent 0 28%, rgba(0,0,0,0.52) 64%, rgba(0,0,0,0.9) 100%),
+    linear-gradient(120deg, rgba(255,255,255,0.07), transparent 38%);
+  z-index: 1;
+}
+
+.generated-rune {
+  position: relative;
+  z-index: 2;
+  color: #f5d87f;
+  font-family: var(--font-display);
+  font-size: 3.35rem;
+  text-shadow: 0 0 22px color-mix(in srgb, var(--card-accent, #b69a62), transparent 28%);
+}
+
+.card-art .generated-rune {
+  font-size: 2.25rem;
+}
+
+.generated-name {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.08);
+  font-family: var(--font-display);
+  font-size: 4.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.preview-art .generated-name {
+  font-size: 7rem;
+}
+
+.card-art.has-image .fallback-symbol,
+.preview-art.has-image .fallback-symbol,
+.fallback-symbol {
+  display: none;
 }
