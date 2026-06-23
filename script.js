@@ -1,9 +1,7 @@
 const fallbackData = {
   meta: {
     counts: { cards: 0, weatherCards: 0, variants: 0 },
-    variants: [],
-    variantCombos: [],
-    notes: []
+    variants: []
   },
   cards: []
 };
@@ -26,7 +24,6 @@ const cardGrid = document.querySelector("#cardGrid");
 const searchInput = document.querySelector("#searchInput");
 const resultCount = document.querySelector("#resultCount");
 const activeSectionTitle = document.querySelector("#activeSectionTitle");
-const activeSectionLabel = document.querySelector("#activeSectionLabel");
 const previewCard = document.querySelector("#previewCard");
 const previewArt = document.querySelector("#previewArt");
 const previewName = document.querySelector("#previewName");
@@ -57,13 +54,7 @@ function normalize(value) {
 }
 
 function titleCaseAbility(value) {
-  const acronyms = new Map([
-    ["hp", "HP"],
-    ["atk", "ATK"],
-    ["aoe", "AOE"],
-    ["dr", "DR"]
-  ]);
-
+  const acronyms = new Map([["hp", "HP"], ["atk", "ATK"], ["aoe", "AOE"], ["dr", "DR"]]);
   return String(value || "")
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
@@ -88,23 +79,29 @@ function formatOdds(value) {
   return `1/${formatNumber(value)}`;
 }
 
-function getImageCandidates(item) {
-  const basePath = item.image || item.imagePath || `assets/cards/${item.id}`;
-  const hasExtension = /\.(png|webp|jpg|jpeg|gif)$/i.test(basePath);
-  if (hasExtension) return [basePath];
+function getWeatherName(card) {
+  return card?.weather || "Base";
+}
+
+function getWeatherMultiplier(card) {
+  const mult = Number(card?.statMult || 1);
+  return Number.isFinite(mult) && mult > 0 ? mult : 1;
+}
+
+function getImageCandidates(card) {
+  const basePath = card.image || card.imagePath || `assets/cards/${card.id}`;
+  if (/\.(png|webp|jpg|jpeg|gif)$/i.test(basePath)) return [basePath];
   return CARD_IMAGE_EXTENSIONS.map((ext) => `${basePath}.${ext}`);
 }
 
 window.tryNextCardImage = function tryNextCardImage(img) {
   const candidates = (img.dataset.candidates || "").split("|").filter(Boolean);
   const nextIndex = Number(img.dataset.fallbackIndex || 0) + 1;
-
   if (candidates[nextIndex]) {
     img.dataset.fallbackIndex = String(nextIndex);
     img.src = candidates[nextIndex];
     return;
   }
-
   img.parentElement?.classList.remove("has-card-image");
   img.remove();
 };
@@ -113,18 +110,17 @@ window.cardImageLoaded = function cardImageLoaded(img) {
   img.parentElement?.classList.add("has-card-image");
 };
 
-function cardImageHTML(item) {
-  const candidates = getImageCandidates(item);
+function cardImageHTML(card) {
+  const candidates = getImageCandidates(card);
   return `
     <span class="image-empty" aria-hidden="true"></span>
     <img class="card-real-image" src="${escapeHTML(candidates[0])}" data-candidates="${escapeHTML(candidates.join("|"))}" data-fallback-index="0" alt="" loading="lazy" onload="cardImageLoaded(this)" onerror="tryNextCardImage(this)">
   `;
 }
 
-function cardAccent(item) {
-  const source = getWeatherName(item).toLowerCase();
-  const name = `${item.name || ""} ${item.ability || ""} ${item.abilityType || ""}`.toLowerCase();
-
+function cardAccent(card) {
+  const source = getWeatherName(card).toLowerCase();
+  const name = `${card.name || ""} ${card.ability || ""} ${card.abilityType || ""}`.toLowerCase();
   if (source.includes("blizzard") || name.includes("ice") || name.includes("frost")) return "#58bff0";
   if (source.includes("blood") || name.includes("blood") || name.includes("vampire")) return "#d95858";
   if (source.includes("heat") || name.includes("fire") || name.includes("ember") || name.includes("phoenix")) return "#f08a45";
@@ -137,36 +133,26 @@ function cardAccent(item) {
   return "#b69a62";
 }
 
-function getSearchBlob(item) {
+function getSearchBlob(card) {
   return normalize([
-    item.name,
-    item.oddsLabel,
-    item.ability,
-    titleCaseAbility(item.ability),
-    item.abilityType,
-    titleCaseAbility(item.abilityType),
-    item.abilityDescription,
-    item.source,
-    item.weather || "Base",
-    ...(item.variants || [])
+    card.name,
+    card.oddsLabel,
+    card.ability,
+    titleCaseAbility(card.ability),
+    card.abilityType,
+    titleCaseAbility(card.abilityType),
+    card.abilityDescription,
+    card.source,
+    card.weather || "Base",
+    ...(card.variants || [])
   ].join(" "));
-}
-
-function getWeatherName(item) {
-  return item.weather || "Base";
-}
-
-function getWeatherMultiplier(item) {
-  const mult = Number(item?.statMult || 1);
-  return Number.isFinite(mult) && mult > 0 ? mult : 1;
 }
 
 function getVisibleCards() {
   const query = normalize(state.query);
-
-  return state.cards.filter((item) => {
-    const matchesWeather = state.activeWeather === "all" || getWeatherName(item) === state.activeWeather;
-    const matchesQuery = !query || getSearchBlob(item).includes(query);
+  return state.cards.filter((card) => {
+    const matchesWeather = state.activeWeather === "all" || getWeatherName(card) === state.activeWeather;
+    const matchesQuery = !query || getSearchBlob(card).includes(query);
     return matchesWeather && matchesQuery;
   });
 }
@@ -176,16 +162,15 @@ function getSelectedCard() {
 }
 
 function selectedBorderNames() {
-  const knownBorderNames = (state.data.meta?.variants || []).map((variant) => variant.name);
-  const orderedNames = [...new Set([...BORDER_NAME_ORDER, ...knownBorderNames])];
+  const knownNames = (state.data.meta?.variants || []).map((border) => border.name);
+  const orderedNames = [...new Set([...BORDER_NAME_ORDER, ...knownNames])];
   const selected = orderedNames.filter((name) => state.selectedBorders.has(name));
-  const extraSelected = [...state.selectedBorders].filter((name) => !selected.includes(name));
-  return [...selected, ...extraSelected];
+  const extra = [...state.selectedBorders].filter((name) => !selected.includes(name));
+  return [...selected, ...extra];
 }
 
 function selectedBorderMultiplier() {
-  const borders = state.data.meta?.variants || [];
-  return borders.reduce((mult, border) => {
+  return (state.data.meta?.variants || []).reduce((mult, border) => {
     if (!state.selectedBorders.has(border.name)) return mult;
     return mult * Number(border.chance || 1);
   }, 1);
@@ -193,8 +178,7 @@ function selectedBorderMultiplier() {
 
 function borderColorList() {
   const borders = state.data.meta?.variants || [];
-  const selectedNames = selectedBorderNames();
-  const colors = selectedNames.map((name) => borders.find((border) => border.name === name)?.color || "#d8b24e");
+  const colors = selectedBorderNames().map((name) => borders.find((border) => border.name === name)?.color || "#d8b24e");
   if (!colors.length) return "";
   if (colors.length === 1) return `${colors[0]}, ${colors[0]}, ${colors[0]}`;
   return `${colors.join(", ")}, ${colors[0]}`;
@@ -207,17 +191,13 @@ function adjustedOdds(card, includeBorders = true) {
 
 function cardStats(card, includeBorders = true) {
   const odds = adjustedOdds(card, includeBorders);
-  if (!odds) return { hp: 0, atk: 0, rawHP: 0, rawATK: 0, odds: 0 };
-
+  if (!odds) return { hp: 0, atk: 0, odds: 0 };
   const rawHP = Math.floor(Math.pow(2, Math.log10(odds)) * 20);
   const rawATK = Math.floor(rawHP / 3);
   const weatherMult = getWeatherMultiplier(card);
-
   return {
     hp: Math.floor(rawHP * weatherMult),
     atk: Math.floor(rawATK * weatherMult),
-    rawHP,
-    rawATK,
     odds,
     weatherMult
   };
@@ -226,11 +206,8 @@ function cardStats(card, includeBorders = true) {
 function setBorderVars(element) {
   const colors = borderColorList();
   element.classList.toggle("has-modifiers", Boolean(colors));
-  if (colors) {
-    element.style.setProperty("--modifier-colors", colors);
-  } else {
-    element.style.removeProperty("--modifier-colors");
-  }
+  if (colors) element.style.setProperty("--modifier-colors", colors);
+  else element.style.removeProperty("--modifier-colors");
 }
 
 function renderStats() {
@@ -248,57 +225,38 @@ function renderWeatherFilters() {
   }).join("");
 }
 
-function cardTileHTML(item) {
-  const isSelected = item.id === state.selectedId;
-  const weather = item.weather ? `<span class="card-tag">${escapeHTML(item.weather)}</span>` : "";
+function cardTileHTML(card) {
+  const isSelected = card.id === state.selectedId;
+  const weather = card.weather ? `<span class="card-tag">${escapeHTML(card.weather)}</span>` : "";
   const borderClass = isSelected && state.selectedBorders.size ? "has-modifiers" : "";
   const borderStyle = isSelected && state.selectedBorders.size ? `--modifier-colors:${escapeHTML(borderColorList())};` : "";
-  const stats = cardStats(item, false);
+  const stats = cardStats(card, false);
 
   return `
-    <button class="card-tile ${isSelected ? "is-selected" : ""} ${borderClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${NEUTRAL_CARD_COLOR}; --card-accent: ${escapeHTML(cardAccent(item))}; ${borderStyle}">
-      <span class="card-art card-image-frame" aria-hidden="true">
-        ${cardImageHTML(item)}
-      </span>
-      <span class="tile-topline">
-        ${weather}
-      </span>
-      <h3>${escapeHTML(item.name)}</h3>
+    <button class="card-tile ${isSelected ? "is-selected" : ""} ${borderClass}" type="button" data-id="${escapeHTML(card.id)}" style="--rarity-color:${NEUTRAL_CARD_COLOR}; --card-accent:${escapeHTML(cardAccent(card))}; ${borderStyle}">
+      <span class="card-art card-image-frame" aria-hidden="true">${cardImageHTML(card)}</span>
+      <span class="tile-topline">${weather}</span>
+      <h3>${escapeHTML(card.name)}</h3>
       <span class="card-stat">HP: ${escapeHTML(formatNumber(stats.hp))} • ATK: ${escapeHTML(formatNumber(stats.atk))}</span>
-      <span class="card-stat">Odds: ${escapeHTML(item.oddsLabel || formatOdds(item.odds))}</span>
-      <span class="card-stat">Source: ${escapeHTML(getWeatherName(item))}</span>
+      <span class="card-stat">Odds: ${escapeHTML(card.oddsLabel || formatOdds(card.odds))}</span>
+      <span class="card-stat">Source: ${escapeHTML(getWeatherName(card))}</span>
     </button>
   `;
 }
 
 function renderIndex() {
-  const items = getVisibleCards();
+  const cards = getVisibleCards();
   activeSectionTitle.textContent = "Index";
-  if (activeSectionLabel) activeSectionLabel.textContent = "Cards";
-  resultCount.textContent = `${items.length} result${items.length === 1 ? "" : "s"}`;
+  resultCount.textContent = `${cards.length} result${cards.length === 1 ? "" : "s"}`;
   weatherFilters.style.display = "flex";
-
-  if (!items.length) {
-    cardGrid.innerHTML = `<div class="empty-state">No cards match that search/filter.</div>`;
-    return;
-  }
-
-  cardGrid.innerHTML = items.map(cardTileHTML).join("");
+  cardGrid.innerHTML = cards.length ? cards.map(cardTileHTML).join("") : `<div class="empty-state">No cards match that search/filter.</div>`;
 }
 
 function renderCalculatorSoon() {
   activeSectionTitle.textContent = "Chance Calc";
-  if (activeSectionLabel) activeSectionLabel.textContent = "";
   resultCount.textContent = "";
   weatherFilters.style.display = "none";
-
-  cardGrid.innerHTML = `
-    <article class="info-panel span-all calc-soon">
-      <h3>Chance calculator</h3>
-      <p>Not added yet.</p>
-    </article>
-  `;
-
+  cardGrid.innerHTML = `<article class="info-panel span-all calc-soon"><h3>Chance calculator</h3><p>Not added yet.</p></article>`;
   previewCard.classList.remove("has-modifiers");
   previewArt.className = "preview-art card-image-frame";
   previewArt.innerHTML = `<span class="image-empty" aria-hidden="true"></span>`;
@@ -323,16 +281,12 @@ function renderCurrentSection() {
 
   renderIndex();
   const visible = getVisibleCards();
-  if (!visible.some((card) => card.id === state.selectedId)) {
-    selectItem(visible[0]?.id);
-  } else {
-    updatePreview();
-  }
+  if (!visible.some((card) => card.id === state.selectedId)) selectItem(visible[0]?.id);
+  else updatePreview();
 }
 
 function renderBorderControls() {
   const borders = state.data.meta?.variants || [];
-
   if (!borders.length) {
     modifierControls.innerHTML = `<span class="muted-small">No border data found.</span>`;
     return;
@@ -350,40 +304,39 @@ function renderBorderControls() {
 }
 
 function updatePreview() {
-  const item = getSelectedCard();
-  if (!item) return;
+  const card = getSelectedCard();
+  if (!card) return;
 
   previewCard.style.setProperty("--preview-color", NEUTRAL_CARD_COLOR);
-  previewCard.style.setProperty("--card-accent", cardAccent(item));
+  previewCard.style.setProperty("--card-accent", cardAccent(card));
   previewArt.className = "preview-art card-image-frame";
-  previewArt.innerHTML = cardImageHTML(item);
-
+  previewArt.innerHTML = cardImageHTML(card);
   setBorderVars(previewCard);
   setBorderVars(previewArt);
 
   const selectedNames = selectedBorderNames();
-  const displayName = selectedNames.length ? `${selectedNames.join(" ")} ${item.name}` : item.name;
-  const baseStats = cardStats(item, false);
-  const currentStats = cardStats(item, true);
-  const weatherText = getWeatherMultiplier(item) !== 1 ? ` • ${getWeatherMultiplier(item)}x stats` : "";
+  const displayName = selectedNames.length ? `${selectedNames.join(" ")} ${card.name}` : card.name;
+  const baseStats = cardStats(card, false);
+  const currentStats = cardStats(card, true);
+  const weatherText = getWeatherMultiplier(card) !== 1 ? ` • ${getWeatherMultiplier(card)}x stats` : "";
 
   previewName.textContent = displayName;
-  previewMeta.textContent = item.abilityDescription || "—";
+  previewMeta.textContent = card.abilityDescription || "—";
   previewBaseHP.textContent = formatNumber(baseStats.hp);
   previewBaseATK.textContent = formatNumber(baseStats.atk);
   previewCurrentHP.textContent = formatNumber(currentStats.hp);
   previewCurrentATK.textContent = formatNumber(currentStats.atk);
-  previewBaseOdds.textContent = item.oddsLabel || formatOdds(item.odds);
+  previewBaseOdds.textContent = card.oddsLabel || formatOdds(card.odds);
   previewCurrentOdds.textContent = formatOdds(currentStats.odds);
-  previewAbility.textContent = titleCaseAbility(item.ability || item.abilityType);
-  previewSource.textContent = (item.weather ? `${item.weather}` : item.source || "Base") + weatherText;
+  previewAbility.textContent = titleCaseAbility(card.ability || card.abilityType);
+  previewSource.textContent = (card.weather ? card.weather : card.source || "Base") + weatherText;
   renderBorderControls();
 }
 
 function selectItem(id) {
-  const item = state.cards.find((card) => card.id === id) || getVisibleCards()[0] || state.cards[0];
-  if (!item) return;
-  state.selectedId = item.id;
+  const card = state.cards.find((item) => item.id === id) || getVisibleCards()[0] || state.cards[0];
+  if (!card) return;
+  state.selectedId = card.id;
   updatePreview();
   if (state.activeSection === "index") renderIndex();
 }
@@ -391,11 +344,9 @@ function selectItem(id) {
 function setActiveSection(section) {
   state.activeSection = section;
   state.selectedId = null;
-
   document.querySelectorAll(".rail-link").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.section === section);
   });
-
   renderCurrentSection();
 }
 
@@ -430,54 +381,46 @@ function wireEvents() {
   modifierControls.addEventListener("click", (event) => {
     const button = event.target.closest("[data-modifier]");
     if (!button) return;
-
     const border = button.dataset.modifier;
-    if (state.selectedBorders.has(border)) {
-      state.selectedBorders.delete(border);
-    } else {
-      state.selectedBorders.add(border);
-    }
-
+    if (state.selectedBorders.has(border)) state.selectedBorders.delete(border);
+    else state.selectedBorders.add(border);
     updatePreview();
     if (state.activeSection === "index") renderIndex();
   });
 
   copyCardButton.addEventListener("click", async () => {
-    const item = getSelectedCard();
-    if (!item) return;
-
+    const card = getSelectedCard();
+    if (!card) return;
     try {
-      await navigator.clipboard.writeText(previewName.textContent || item.name);
+      await navigator.clipboard.writeText(previewName.textContent || card.name);
       copyCardButton.textContent = "Copied";
-      setTimeout(() => {
-        copyCardButton.textContent = "Copy card name";
-      }, 1200);
+      setTimeout(() => copyCardButton.textContent = "Copy card name", 1200);
     } catch {
-      copyCardButton.textContent = item.name;
+      copyCardButton.textContent = card.name;
     }
   });
 }
 
+async function fetchJSON(path) {
+  const response = await fetch(path, { cache: "no-store" });
+  if (!response.ok) throw new Error(`${path} failed`);
+  return response.json();
+}
+
 async function loadData() {
   try {
-    const response = await fetch("data/cards.json", { cache: "no-store" });
-    if (!response.ok) throw new Error("Could not load data/cards.json");
-    const data = await response.json();
-
+    const data = await fetchJSON("data/cards.json");
     if (Array.isArray(data.parts)) {
-      const partResponses = await Promise.all(data.parts.map(async (partPath) => {
-        const partResponse = await fetch(partPath, { cache: "no-store" });
-        if (!partResponse.ok) throw new Error(`Could not load ${partPath}`);
-        return partResponse.json();
-      }));
-
-      data.cards = partResponses.flatMap((part) => Array.isArray(part.cards) ? part.cards : []);
+      const partResults = await Promise.allSettled(data.parts.map((partPath) => fetchJSON(partPath)));
+      data.cards = partResults.flatMap((result) => {
+        if (result.status !== "fulfilled") return [];
+        return Array.isArray(result.value.cards) ? result.value.cards : [];
+      });
     }
-
     state.data = data;
     state.cards = Array.isArray(data.cards) ? data.cards : [];
   } catch (error) {
-    console.warn("Using fallback data:", error);
+    console.error("Card data did not load", error);
     state.data = fallbackData;
     state.cards = [];
   }
