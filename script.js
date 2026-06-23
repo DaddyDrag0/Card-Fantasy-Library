@@ -29,6 +29,10 @@ const previewCard = document.querySelector("#previewCard");
 const previewArt = document.querySelector("#previewArt");
 const previewName = document.querySelector("#previewName");
 const previewMeta = document.querySelector("#previewMeta");
+const previewBaseHP = document.querySelector("#previewBaseHP");
+const previewBaseATK = document.querySelector("#previewBaseATK");
+const previewCurrentHP = document.querySelector("#previewCurrentHP");
+const previewCurrentATK = document.querySelector("#previewCurrentATK");
 const previewBaseOdds = document.querySelector("#previewBaseOdds");
 const previewCurrentOdds = document.querySelector("#previewCurrentOdds");
 const previewAbility = document.querySelector("#previewAbility");
@@ -74,7 +78,7 @@ function titleCaseAbility(value) {
 
 function formatNumber(value) {
   if (value === null || value === undefined || Number(value) <= 0) return "Not rollable";
-  return Number(value).toLocaleString();
+  return Math.floor(Number(value)).toLocaleString();
 }
 
 function formatOdds(value) {
@@ -140,6 +144,11 @@ function getWeatherName(item) {
   return item.weather || "Base";
 }
 
+function getWeatherMultiplier(item) {
+  const mult = Number(item?.statMult || 1);
+  return Number.isFinite(mult) && mult > 0 ? mult : 1;
+}
+
 function getVisibleCards() {
   const query = normalize(state.query);
 
@@ -154,6 +163,14 @@ function getSelectedCard() {
   return state.cards.find((card) => card.id === state.selectedId) || getVisibleCards()[0] || state.cards[0] || null;
 }
 
+function selectedVariantMultiplier() {
+  const variants = state.data.meta?.variants || [];
+  return variants.reduce((mult, variant) => {
+    if (!state.selectedModifiers.has(variant.name)) return mult;
+    return mult * Number(variant.chance || 1);
+  }, 1);
+}
+
 function modifierColorList() {
   const variants = state.data.meta?.variants || [];
   const selected = variants.filter((variant) => state.selectedModifiers.has(variant.name));
@@ -163,14 +180,27 @@ function modifierColorList() {
   return `${colors.join(", ")}, ${colors[0]}`;
 }
 
-function currentOdds(card) {
+function adjustedOdds(card, includeModifiers = true) {
   if (!card || !Number(card.odds)) return 0;
+  return Number(card.odds) * (includeModifiers ? selectedVariantMultiplier() : 1);
+}
 
-  const variants = state.data.meta?.variants || [];
-  return variants.reduce((odds, variant) => {
-    if (!state.selectedModifiers.has(variant.name)) return odds;
-    return odds * Number(variant.chance || 1);
-  }, Number(card.odds));
+function cardStats(card, includeModifiers = true) {
+  const odds = adjustedOdds(card, includeModifiers);
+  if (!odds) return { hp: 0, atk: 0, rawHP: 0, rawATK: 0, odds: 0 };
+
+  const rawHP = Math.floor(Math.pow(2, Math.log10(odds)) * 20);
+  const rawATK = Math.floor(rawHP / 3);
+  const weatherMult = getWeatherMultiplier(card);
+
+  return {
+    hp: Math.floor(rawHP * weatherMult),
+    atk: Math.floor(rawATK * weatherMult),
+    rawHP,
+    rawATK,
+    odds,
+    weatherMult
+  };
 }
 
 function setModifierBorderVars(element) {
@@ -203,6 +233,7 @@ function cardTileHTML(item) {
   const weather = item.weather ? `<span class="card-tag">${escapeHTML(item.weather)}</span>` : "";
   const modifierClass = isSelected && state.selectedModifiers.size ? "has-modifiers" : "";
   const modifierStyle = isSelected && state.selectedModifiers.size ? `--modifier-colors:${escapeHTML(modifierColorList())};` : "";
+  const stats = cardStats(item, false);
 
   return `
     <button class="card-tile ${isSelected ? "is-selected" : ""} ${modifierClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${NEUTRAL_CARD_COLOR}; --card-accent: ${escapeHTML(cardAccent(item))}; ${modifierStyle}">
@@ -213,6 +244,7 @@ function cardTileHTML(item) {
         ${weather}
       </span>
       <h3>${escapeHTML(item.name)}</h3>
+      <span class="card-stat">HP: ${escapeHTML(formatNumber(stats.hp))} • ATK: ${escapeHTML(formatNumber(stats.atk))}</span>
       <span class="card-stat">Odds: ${escapeHTML(item.oddsLabel || formatOdds(item.odds))}</span>
       <span class="card-stat">Source: ${escapeHTML(getWeatherName(item))}</span>
     </button>
@@ -253,6 +285,10 @@ function renderCalculatorSoon() {
   previewArt.innerHTML = `<span class="generated-vignette"></span><span class="generated-rune">%</span>`;
   previewName.textContent = "Chance Calculator";
   previewMeta.textContent = "Reserved for the next feature after the card index.";
+  previewBaseHP.textContent = "Later";
+  previewBaseATK.textContent = "Later";
+  previewCurrentHP.textContent = "Later";
+  previewCurrentATK.textContent = "Later";
   previewBaseOdds.textContent = "Later";
   previewCurrentOdds.textContent = "Later";
   previewAbility.textContent = "Card odds + modifiers";
@@ -308,13 +344,20 @@ function updatePreview() {
 
   const selectedNames = [...state.selectedModifiers];
   const modifierText = selectedNames.length ? ` with ${selectedNames.join(" + ")}` : "";
+  const baseStats = cardStats(item, false);
+  const currentStats = cardStats(item, true);
+  const weatherText = getWeatherMultiplier(item) !== 1 ? ` • ${getWeatherMultiplier(item)}x weather stats` : "";
 
   previewName.textContent = item.name + modifierText;
   previewMeta.textContent = item.abilityDescription || "No ability description found.";
+  previewBaseHP.textContent = formatNumber(baseStats.hp);
+  previewBaseATK.textContent = formatNumber(baseStats.atk);
+  previewCurrentHP.textContent = formatNumber(currentStats.hp);
+  previewCurrentATK.textContent = formatNumber(currentStats.atk);
   previewBaseOdds.textContent = item.oddsLabel || formatOdds(item.odds);
-  previewCurrentOdds.textContent = formatOdds(currentOdds(item));
+  previewCurrentOdds.textContent = formatOdds(currentStats.odds);
   previewAbility.textContent = titleCaseAbility(item.ability || item.abilityType);
-  previewSource.textContent = item.weather ? `${item.weather} weather` : item.source || "Base roll";
+  previewSource.textContent = (item.weather ? `${item.weather} weather` : item.source || "Base roll") + weatherText;
   renderModifierControls();
 }
 
