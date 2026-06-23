@@ -19,8 +19,8 @@ const CardFantasyStatSync = (() => {
     }, 1);
   }
 
-  function calculateStats(card) {
-    const odds = Number(card?.odds || 0) * currentBorderMultiplier();
+  function calculateStats(card, multiplier = 1) {
+    const odds = Number(card?.odds || 0) * multiplier;
     if (!odds) return { hp: 0, atk: 0 };
 
     const rawHP = Math.floor(Math.pow(2, Math.log10(odds)) * 20);
@@ -77,11 +77,14 @@ const CardFantasyStatSync = (() => {
   }
 
   function syncCardTiles() {
+    const borderMult = currentBorderMultiplier();
+
     document.querySelectorAll(".card-tile[data-id]").forEach((tile) => {
       const card = cardMap.get(tile.dataset.id);
       if (!card) return;
 
-      const stats = calculateStats(card);
+      const isSelected = tile.classList.contains("is-selected");
+      const stats = calculateStats(card, isSelected ? borderMult : 1);
       const statLine = tile.querySelector(".card-stat");
       if (!statLine) return;
 
