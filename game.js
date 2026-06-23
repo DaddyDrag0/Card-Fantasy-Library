@@ -1,26 +1,61 @@
-const CardFantasyGame = (() => {
+const CardFantasy2D = (() => {
   const DATA_MANIFEST = "data/cards.json";
-  const MAX_TEAM_SIZE = 5;
-  const BORDER_BONUS = { Shiny: 1.25, Diamond: 1.6, Radiant: 2.25 };
-  const state = {
-    cards: [],
-    variants: [],
-    loaded: false,
-    run: null,
-    recruitChoices: [],
-    relicChoices: []
+  const SAVE_KEY = "cardFantasy2DGameSaveV1";
+  const MAX_TEAM = 5;
+  const AUTO_ROLL_MS = 850;
+  const BORDER_STATS = {
+    "": { label: "Base", stat: 1, rollLuck: 1, color: "#8c8170" },
+    Shiny: { label: "Shiny", stat: 1.25, rollLuck: 1.15, color: "#e8e8e8" },
+    Diamond: { label: "Diamond", stat: 1.65, rollLuck: 1.5, color: "#68d8ff" },
+    Radiant: { label: "Radiant", stat: 2.4, rollLuck: 2.1, color: "#ffd86b" }
   };
 
+  const app = document.querySelector("#gameApp");
+  let cards = [];
+  let variants = [];
+  let cardMap = new Map();
+  let autoRollTimer = null;
+  let lastRollCardKey = "";
+
   const relicPool = [
-    { name: "Lucky Coin", icon: "◍", text: "+2 gold after every win.", apply: (run) => run.goldBonus += 2 },
-    { name: "War Banner", icon: "⚔", text: "+20% team ATK.", apply: (run) => run.atkMult += 0.2 },
-    { name: "Golden Apple", icon: "●", text: "+20% team max HP and heal.", apply: (run) => { run.hpMult += 0.2; run.team.forEach(unit => { unit.maxHp = Math.ceil(unit.maxHp * 1.2); unit.hp = unit.maxHp; }); } },
-    { name: "Vampire Fang", icon: "◆", text: "Heal 18% HP after each win.", apply: (run) => run.lifesteal += 0.18 },
-    { name: "Weather Totem", icon: "☁", text: "Weather cards deal +35% ATK.", apply: (run) => run.weatherAtk += 0.35 },
-    { name: "Shiny Lens", icon: "✦", text: "Bordered cards deal +30% ATK.", apply: (run) => run.borderAtk += 0.3 },
-    { name: "Diamond Wall", icon: "▰", text: "Enemies deal 20% less damage.", apply: (run) => run.damageReduction += 0.2 },
-    { name: "Radiant Spark", icon: "✹", text: "+14 flat damage every attack.", apply: (run) => run.flatDamage += 14 }
+    { id: "lucky_coin", name: "Lucky Coin", icon: "◍", text: "+2 coins every roll and fight win.", type: "coins" },
+    { id: "war_banner", name: "War Banner", icon: "⚔", text: "+18% team ATK against NPCs.", type: "atk" },
+    { id: "golden_apple", name: "Golden Apple", icon: "●", text: "+18% team HP against NPCs.", type: "hp" },
+    { id: "weather_totem", name: "Weather Totem", icon: "☁", text: "Weather cards get +35% ATK.", type: "weather" },
+    { id: "shiny_lens", name: "Shiny Lens", icon: "✦", text: "Bordered cards get +25% ATK.", type: "border" },
+    { id: "diamond_wall", name: "Diamond Wall", icon: "▰", text: "NPC damage is reduced by 18%.", type: "defense" },
+    { id: "radiant_spark", name: "Radiant Spark", icon: "✹", text: "+20 flat team damage.", type: "flat" },
+    { id: "relic_magnet", name: "Relic Magnet", icon: "◆", text: "Better chance to find relics after NPC wins.", type: "drop" }
   ];
+
+  const charmPool = [
+    { id: "roll_charm", name: "Roll Charm", icon: "⌁", text: "+12% rare roll luck.", type: "luck" },
+    { id: "power_charm", name: "Power Charm", icon: "⚔", text: "+12% team ATK.", type: "atk" },
+    { id: "heart_charm", name: "Heart Charm", icon: "♥", text: "+12% team HP.", type: "hp" },
+    { id: "coin_charm", name: "Coin Charm", icon: "◍", text: "+1 coin per roll.", type: "coin" },
+    { id: "craft_charm", name: "Craft Charm", icon: "✧", text: "Crafting costs 15% less.", type: "craft" },
+    { id: "hunter_charm", name: "Hunter Charm", icon: "☠", text: "+10% NPC rewards.", type: "reward" }
+  ];
+
+  let save = defaultSave();
+
+  function defaultSave() {
+    return {
+      rolls: 0,
+      coins: 0,
+      dust: 0,
+      wave: 1,
+      wins: 0,
+      losses: 0,
+      inventory: {},
+      equipped: [],
+      relics: {},
+      charms: {},
+      equippedCharm: "",
+      lastRoll: null,
+      log: ["2D save created. Roll cards to build your team."]
+    };
+  }
 
   function escapeHTML(value) {
     return String(value ?? "")
@@ -31,17 +66,39 @@ const CardFantasyGame = (() => {
       .replaceAll("'", "&#039;");
   }
 
-  function pick(list, count = 1) {
-    const copy = [...list];
-    const picks = [];
-    while (copy.length && picks.length < count) {
-      picks.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
-    }
-    return picks;
+  function formatNumber(value) {
+    return Math.floor(Number(value || 0)).toLocaleString();
   }
 
-  function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
+  function compactNumber(value) {
+    const num = Number(value || 0);
+    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}m`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}k`;
+    return formatNumber(num);
+  }
+
+  function log(text) {
+    save.log.unshift(text);
+    save.log = save.log.slice(0, 10);
+  }
+
+  function writeSave() {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    updateTopStats();
+  }
+
+  function loadSave() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      if (stored && typeof stored === "object") save = { ...defaultSave(), ...stored };
+    } catch {
+      save = defaultSave();
+    }
+    save.inventory ||= {};
+    save.equipped ||= [];
+    save.relics ||= {};
+    save.charms ||= {};
+    save.log ||= [];
   }
 
   async function fetchJSON(path) {
@@ -50,426 +107,637 @@ const CardFantasyGame = (() => {
     return response.json();
   }
 
-  async function loadData() {
-    if (state.loaded) return;
+  async function loadCards() {
     const data = await fetchJSON(DATA_MANIFEST);
+    variants = data.meta?.variants?.length ? data.meta.variants : [
+      { name: "Shiny", chance: 100, color: "#e8e8e8" },
+      { name: "Diamond", chance: 10000, color: "#68d8ff" },
+      { name: "Radiant", chance: 1500000, color: "#ffd86b" }
+    ];
+
     const parts = Array.isArray(data.parts) ? data.parts : [];
     const results = await Promise.allSettled(parts.map(fetchJSON));
-    state.cards = results.flatMap((result) => {
+    cards = results.flatMap((result) => {
       if (result.status !== "fulfilled") return [];
       return Array.isArray(result.value.cards) ? result.value.cards : [];
-    }).filter((card) => Number(card?.odds) > 0);
-    state.variants = data.meta?.variants || [];
-    state.loaded = true;
+    }).filter((card) => Number(card?.odds) > 0 && !String(card?.oddsLabel || "").toLowerCase().includes("not rollable"));
+
+    cardMap = new Map(cards.map((card) => [card.id, card]));
   }
 
-  function cardPower(card, borderName = "") {
-    const odds = Number(card?.odds || 1);
-    const log = Math.max(1, Math.log10(odds));
-    const weatherMult = Number(card?.statMult || 1) || 1;
-    const borderBonus = BORDER_BONUS[borderName] || 1;
-    const maxHp = clamp(Math.round((18 + log * 16) * weatherMult * borderBonus), 20, 999);
-    const atk = clamp(Math.round((5 + log * 5.5) * weatherMult * borderBonus), 4, 450);
-    return { maxHp, atk };
-  }
-
-  function createUnit(card) {
-    const stats = cardPower(card);
+  function unlocked() {
     return {
-      id: `${card.id}-${crypto?.randomUUID?.() || Math.random()}`,
-      cardId: card.id,
-      name: card.name,
-      weather: card.weather || "Base",
-      ability: card.ability || card.abilityType || "None",
-      odds: Number(card.odds || 1),
-      oddsLabel: card.oddsLabel || `1/${Math.floor(Number(card.odds || 1)).toLocaleString()}`,
-      border: "",
-      maxHp: stats.maxHp,
-      hp: stats.maxHp,
-      atk: stats.atk
+      autoRoll: save.rolls >= 10,
+      fight: save.rolls >= 5,
+      crafting: save.rolls >= 25,
+      charms: save.rolls >= 40,
+      relics: save.rolls >= 60 || save.wins >= 3 || save.wave >= 4
     };
   }
 
-  function recalcUnit(unit) {
-    const card = state.cards.find((item) => item.id === unit.cardId);
-    if (!card) return;
-    const oldMax = unit.maxHp;
-    const stats = cardPower(card, unit.border);
-    unit.maxHp = Math.ceil(stats.maxHp * state.run.hpMult);
-    unit.hp = Math.min(unit.maxHp, Math.ceil(unit.hp * (unit.maxHp / Math.max(1, oldMax))));
-    unit.atk = stats.atk;
+  function charmLevel(type) {
+    const charm = charmPool.find((item) => item.type === type && save.charms[item.id]);
+    return charm ? save.charms[charm.id] || 0 : 0;
   }
 
-  function createEnemy(wave) {
-    const names = ["Training Dummy", "Goblin Thief", "Forest Slime", "Bandit Scout", "Blood Knight", "Frost Warden", "Void Beast", "Radiant Titan"];
-    const name = names[Math.min(names.length - 1, Math.floor((wave - 1) / 2))];
-    const maxHp = Math.round(55 + wave * 34 + Math.pow(wave, 1.35) * 22);
-    const atk = Math.round(8 + wave * 4.5);
-    return { name, maxHp, hp: maxHp, atk };
+  function equippedCharm() {
+    return charmPool.find((item) => item.id === save.equippedCharm) || null;
   }
 
-  function strongestStarterCards() {
-    return [...state.cards].sort((a, b) => Number(a.odds || 0) - Number(b.odds || 0)).slice(0, 20);
+  function relicLevel(type) {
+    return relicPool
+      .filter((item) => item.type === type)
+      .reduce((sum, relic) => sum + (save.relics[relic.id] || 0), 0);
   }
 
-  function newRun() {
-    const starters = pick(strongestStarterCards(), 3).map(createUnit);
-    state.run = {
-      wave: 1,
-      gold: 0,
-      goldBonus: 0,
-      atkMult: 1,
-      hpMult: 1,
-      lifesteal: 0,
-      weatherAtk: 0,
-      borderAtk: 0,
-      damageReduction: 0,
-      flatDamage: 0,
-      team: starters,
-      relics: [],
-      enemy: createEnemy(1),
-      log: ["Run started. Beat waves, recruit cards, forge borders, and stack relics."]
+  function activeCharmBonus(type) {
+    const charm = equippedCharm();
+    if (!charm || charm.type !== type) return 0;
+    return 1 + 0.12 * (save.charms[charm.id] || 1);
+  }
+
+  function rollLuck() {
+    const charm = equippedCharm();
+    const charmBonus = charm?.type === "luck" ? 1 + 0.12 * (save.charms[charm.id] || 1) : 1;
+    const radiantRelic = 1 + relicLevel("drop") * 0.08;
+    return charmBonus * radiantRelic;
+  }
+
+  function chooseWeightedCard() {
+    const luck = rollLuck();
+    const exponent = Math.max(0.34, 0.56 - (luck - 1) * 0.035);
+    const weights = cards.map((card) => 1 / Math.pow(Number(card.odds || 1), exponent));
+    const total = weights.reduce((sum, value) => sum + value, 0);
+    let roll = Math.random() * total;
+    for (let i = 0; i < cards.length; i += 1) {
+      roll -= weights[i];
+      if (roll <= 0) return cards[i];
+    }
+    return cards[0];
+  }
+
+  function rollBorder() {
+    const luck = rollLuck();
+    const ordered = [...variants].sort((a, b) => Number(b.chance || 1) - Number(a.chance || 1));
+    for (const variant of ordered) {
+      const denom = Math.max(1, Math.sqrt(Number(variant.chance || 1)) / luck);
+      if (Math.random() < 1 / denom) return variant.name;
+    }
+    return "";
+  }
+
+  function invKey(cardId, border = "") {
+    return `${cardId}::${border}`;
+  }
+
+  function inventoryItem(key) {
+    const item = save.inventory[key];
+    if (!item) return null;
+    const card = cardMap.get(item.cardId);
+    if (!card) return null;
+    return { ...item, key, card };
+  }
+
+  function allInventoryItems() {
+    return Object.keys(save.inventory)
+      .map(inventoryItem)
+      .filter(Boolean)
+      .sort((a, b) => itemPower(b) - itemPower(a));
+  }
+
+  function borderStatMult(border) {
+    return BORDER_STATS[border]?.stat || 1;
+  }
+
+  function baseStats(card, border = "") {
+    const odds = Number(card?.odds || 1) * borderStatMult(border);
+    const logOdds = Math.max(1, Math.log10(odds));
+    const weatherMult = Number(card?.statMult || 1) || 1;
+    return {
+      hp: Math.round((35 + logOdds * 23) * weatherMult),
+      atk: Math.round((8 + logOdds * 7) * weatherMult),
+      power: Math.round((35 + logOdds * 23) * weatherMult + (8 + logOdds * 7) * weatherMult * 4)
     };
-    state.recruitChoices = [];
-    state.relicChoices = [];
+  }
+
+  function itemPower(item) {
+    const stats = baseStats(item.card, item.border);
+    return stats.power + Math.log10(Number(item.card.odds || 1)) * 20;
+  }
+
+  function teamItems() {
+    return save.equipped.map(inventoryItem).filter(Boolean);
+  }
+
+  function teamStats() {
+    const team = teamItems();
+    const hpMult = activeCharmBonus("hp") || 1;
+    const atkMult = activeCharmBonus("atk") || 1;
+    const relicHp = 1 + relicLevel("hp") * 0.18;
+    const relicAtk = 1 + relicLevel("atk") * 0.18;
+    const weatherAtk = relicLevel("weather") * 0.35;
+    const borderAtk = relicLevel("border") * 0.25;
+    const flat = relicLevel("flat") * 20;
+
+    return team.reduce((total, item) => {
+      const stats = baseStats(item.card, item.border);
+      const isWeather = Boolean(item.card.weather);
+      const hasBorder = Boolean(item.border);
+      let atk = stats.atk * atkMult * relicAtk;
+      if (isWeather) atk *= 1 + weatherAtk;
+      if (hasBorder) atk *= 1 + borderAtk;
+      total.hp += Math.round(stats.hp * hpMult * relicHp);
+      total.atk += Math.round(atk);
+      return total;
+    }, { hp: 0, atk: flat, size: team.length });
+  }
+
+  function addInventory(card, border = "") {
+    const key = invKey(card.id, border);
+    if (!save.inventory[key]) save.inventory[key] = { cardId: card.id, border, count: 0 };
+    save.inventory[key].count += 1;
+    lastRollCardKey = key;
+    if (!save.equipped.length) save.equipped.push(key);
+  }
+
+  function rarityDust(card) {
+    return Math.max(1, Math.ceil(Math.log10(Number(card.odds || 1))));
+  }
+
+  function rollOnce({ silent = false } = {}) {
+    const card = chooseWeightedCard();
+    const border = rollBorder();
+    addInventory(card, border);
+    save.rolls += 1;
+    const coinGain = 1 + relicLevel("coins") * 2 + (equippedCharm()?.type === "coin" ? save.charms[save.equippedCharm] || 1 : 0);
+    const dustGain = rarityDust(card) + (border ? 5 : 0);
+    save.coins += coinGain;
+    save.dust += dustGain;
+    save.lastRoll = { cardId: card.id, border, dustGain, coinGain };
+    if (!silent) log(`Rolled ${border ? `${border} ` : ""}${card.name}. +${coinGain} coins, +${dustGain} dust.`);
+    checkUnlockLogs();
+    autoEquipBest(false);
+    writeSave();
     render();
   }
 
-  function aliveTeam() {
-    return state.run.team.filter((unit) => unit.hp > 0);
+  function checkUnlockLogs() {
+    const recent = save.rolls;
+    if (recent === 5) log("NPC fights unlocked.");
+    if (recent === 10) log("Auto Roll unlocked.");
+    if (recent === 25) log("Crafting unlocked.");
+    if (recent === 40) log("Charms unlocked.");
+    if (recent === 60) log("Relics unlocked.");
   }
 
-  function unitAttack(unit) {
-    let damage = unit.atk * state.run.atkMult;
-    if (unit.weather !== "Base") damage *= 1 + state.run.weatherAtk;
-    if (unit.border) damage *= 1 + state.run.borderAtk;
-    return Math.max(1, Math.round(damage));
-  }
-
-  function totalAttack() {
-    return aliveTeam().reduce((sum, unit) => sum + unitAttack(unit), 0) + state.run.flatDamage;
-  }
-
-  function pushLog(text) {
-    state.run.log.unshift(text);
-    state.run.log = state.run.log.slice(0, 7);
-  }
-
-  function winWave() {
-    const goldGain = 3 + state.run.wave + state.run.goldBonus;
-    state.run.gold += goldGain;
-    pushLog(`Wave ${state.run.wave} cleared. +${goldGain} gold.`);
-    if (state.run.lifesteal) {
-      state.run.team.forEach((unit) => {
-        if (unit.hp > 0) unit.hp = Math.min(unit.maxHp, unit.hp + Math.ceil(unit.maxHp * state.run.lifesteal));
-      });
+  function toggleAutoRoll() {
+    if (!unlocked().autoRoll) {
+      log("Auto Roll unlocks at 10 rolls.");
+      render();
+      return;
     }
-    state.relicChoices = pick(relicPool, 3);
-    state.run.wave += 1;
-    state.run.enemy = createEnemy(state.run.wave);
+    if (autoRollTimer) {
+      clearInterval(autoRollTimer);
+      autoRollTimer = null;
+      log("Auto Roll stopped.");
+      render();
+      return;
+    }
+    autoRollTimer = setInterval(() => rollOnce({ silent: true }), AUTO_ROLL_MS);
+    log("Auto Roll started.");
+    render();
   }
 
-  function attack() {
-    if (!state.run || !aliveTeam().length) return;
-    if (state.relicChoices.length) {
-      pushLog("Choose a relic before the next fight.");
+  function autoEquipBest(shouldRender = true) {
+    const best = allInventoryItems().slice(0, MAX_TEAM).map((item) => item.key);
+    save.equipped = best;
+    if (shouldRender) {
+      log("Best cards equipped.");
+      writeSave();
+      render();
+    }
+  }
+
+  function toggleEquip(key) {
+    if (!save.inventory[key]) return;
+    if (save.equipped.includes(key)) save.equipped = save.equipped.filter((item) => item !== key);
+    else {
+      if (save.equipped.length >= MAX_TEAM) save.equipped.shift();
+      save.equipped.push(key);
+    }
+    writeSave();
+    render();
+  }
+
+  function enemyStats() {
+    const names = ["Training Dummy", "Goblin", "Bandit", "Orc Warrior", "Blood Knight", "Frost Warden", "Void Beast", "Radiant Titan"];
+    const tier = Math.min(names.length - 1, Math.floor((save.wave - 1) / 3));
+    return {
+      name: names[tier],
+      hp: Math.round(75 + save.wave * 45 + Math.pow(save.wave, 1.35) * 25),
+      atk: Math.round(12 + save.wave * 8 + Math.pow(save.wave, 1.18) * 3)
+    };
+  }
+
+  function fightNpc() {
+    if (!unlocked().fight) {
+      log("NPC fights unlock at 5 rolls.");
+      render();
+      return;
+    }
+    const team = teamStats();
+    if (!team.size) {
+      log("Equip at least one card before fighting.");
       render();
       return;
     }
 
-    const damage = totalAttack();
-    state.run.enemy.hp = Math.max(0, state.run.enemy.hp - damage);
-    pushLog(`Your team dealt ${damage} damage.`);
+    const enemy = enemyStats();
+    const defense = Math.min(0.7, relicLevel("defense") * 0.18);
+    const teamTurns = Math.ceil(enemy.hp / Math.max(1, team.atk));
+    const enemyDamage = Math.round(enemy.atk * (1 - defense));
+    const enemyTurns = Math.ceil(team.hp / Math.max(1, enemyDamage));
 
-    if (state.run.enemy.hp <= 0) {
-      winWave();
-      render();
-      return;
-    }
-
-    const target = pick(aliveTeam(), 1)[0];
-    const enemyDamage = Math.max(1, Math.round(state.run.enemy.atk * (1 - Math.min(0.75, state.run.damageReduction))));
-    target.hp = Math.max(0, target.hp - enemyDamage);
-    pushLog(`${state.run.enemy.name} hit ${target.name} for ${enemyDamage}.`);
-
-    if (!aliveTeam().length) pushLog("Run over. Start a new run to try again.");
-    render();
-  }
-
-  function chooseRelic(index) {
-    const relic = state.relicChoices[index];
-    if (!relic || !state.run) return;
-    state.run.relics.push(relic);
-    relic.apply(state.run);
-    state.run.team.forEach(recalcUnit);
-    state.relicChoices = [];
-    pushLog(`Relic gained: ${relic.name}.`);
-    render();
-  }
-
-  function showRecruitChoices() {
-    if (!state.run) return;
-    if (state.run.gold < 4) {
-      pushLog("Recruit costs 4 gold.");
-      render();
-      return;
-    }
-    const pool = [...state.cards].sort(() => Math.random() - 0.5).slice(0, 40);
-    state.recruitChoices = pick(pool, 3);
-    pushLog("Choose one recruit.");
-    render();
-  }
-
-  function recruit(index) {
-    const card = state.recruitChoices[index];
-    if (!card || !state.run || state.run.gold < 4) return;
-    state.run.gold -= 4;
-    const unit = createUnit(card);
-    state.run.team.push(unit);
-    if (state.run.team.length > MAX_TEAM_SIZE) {
-      state.run.team.sort((a, b) => a.hp - b.hp);
-      const removed = state.run.team.shift();
-      pushLog(`${unit.name} joined. ${removed.name} left the team.`);
+    if (teamTurns <= enemyTurns) {
+      const rewardMult = activeCharmBonus("reward") || 1;
+      const coinGain = Math.round((9 + save.wave * 3 + relicLevel("coins") * 2) * rewardMult);
+      const dustGain = Math.round((8 + save.wave * 2) * rewardMult);
+      save.coins += coinGain;
+      save.dust += dustGain;
+      save.wins += 1;
+      log(`Defeated ${enemy.name} on wave ${save.wave}. +${coinGain} coins, +${dustGain} dust.`);
+      save.wave += 1;
+      maybeDropRelic();
     } else {
-      pushLog(`${unit.name} joined the team.`);
+      save.losses += 1;
+      save.coins += 2;
+      log(`${enemy.name} won. Upgrade cards, craft, or roll more. +2 coins.`);
     }
-    state.recruitChoices = [];
+    writeSave();
+    render();
+  }
+
+  function maybeDropRelic() {
+    const isUnlocked = unlocked().relics;
+    if (!isUnlocked && save.wins < 3) return;
+    const chance = 0.18 + relicLevel("drop") * 0.07 + (save.wins % 5 === 0 ? 0.35 : 0);
+    if (Math.random() <= chance) {
+      const relic = randomMissingOrAny(relicPool, save.relics);
+      save.relics[relic.id] = (save.relics[relic.id] || 0) + 1;
+      log(`Relic unlocked: ${relic.name}.`);
+    }
+  }
+
+  function randomMissingOrAny(pool, owned) {
+    const missing = pool.filter((item) => !owned[item.id]);
+    const list = missing.length ? missing : pool;
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function craftCost(baseCoins, baseDust) {
+    const discount = equippedCharm()?.type === "craft" ? 0.85 : 1;
+    return { coins: Math.ceil(baseCoins * discount), dust: Math.ceil(baseDust * discount) };
+  }
+
+  function canPay(cost) {
+    return save.coins >= cost.coins && save.dust >= cost.dust;
+  }
+
+  function pay(cost) {
+    save.coins -= cost.coins;
+    save.dust -= cost.dust;
+  }
+
+  function craftCharm() {
+    if (!unlocked().charms) {
+      log("Charms unlock at 40 rolls.");
+      render();
+      return;
+    }
+    const cost = craftCost(25, 60);
+    if (!canPay(cost)) {
+      log(`Craft Charm needs ${cost.coins} coins and ${cost.dust} dust.`);
+      render();
+      return;
+    }
+    pay(cost);
+    const charm = randomMissingOrAny(charmPool, save.charms);
+    save.charms[charm.id] = (save.charms[charm.id] || 0) + 1;
+    if (!save.equippedCharm) save.equippedCharm = charm.id;
+    log(`Crafted ${charm.name}.`);
+    writeSave();
+    render();
+  }
+
+  function craftRelic() {
+    if (!unlocked().relics) {
+      log("Relic crafting unlocks at 60 rolls, 3 wins, or wave 4.");
+      render();
+      return;
+    }
+    const cost = craftCost(55, 120);
+    if (!canPay(cost)) {
+      log(`Craft Relic needs ${cost.coins} coins and ${cost.dust} dust.`);
+      render();
+      return;
+    }
+    pay(cost);
+    const relic = randomMissingOrAny(relicPool, save.relics);
+    save.relics[relic.id] = (save.relics[relic.id] || 0) + 1;
+    log(`Crafted relic: ${relic.name}.`);
+    writeSave();
     render();
   }
 
   function forgeBorder() {
-    if (!state.run) return;
-    if (state.run.gold < 5) {
-      pushLog("Forge Border costs 5 gold.");
+    if (!unlocked().crafting) {
+      log("Border forging unlocks at 25 rolls.");
       render();
       return;
     }
-    const candidates = aliveTeam().filter((unit) => !unit.border);
-    const borders = state.variants.length ? state.variants.map((item) => item.name) : ["Shiny", "Diamond", "Radiant"];
-    if (!candidates.length) {
-      pushLog("Every living card already has a border.");
+    const cost = craftCost(40, 80);
+    if (!canPay(cost)) {
+      log(`Forge Border needs ${cost.coins} coins and ${cost.dust} dust.`);
       render();
       return;
     }
-    state.run.gold -= 5;
-    const unit = pick(candidates, 1)[0];
-    unit.border = pick(borders, 1)[0];
-    recalcUnit(unit);
-    unit.hp = unit.maxHp;
-    pushLog(`${unit.name} became ${unit.border}.`);
+    const baseEquipped = save.equipped.map(inventoryItem).find((item) => item && !item.border);
+    if (!baseEquipped) {
+      log("Equip a base card with no border first.");
+      render();
+      return;
+    }
+    pay(cost);
+    const border = rollBorder() || "Shiny";
+    const oldKey = baseEquipped.key;
+    const newKey = invKey(baseEquipped.cardId, border);
+    save.inventory[oldKey].count -= 1;
+    if (save.inventory[oldKey].count <= 0) delete save.inventory[oldKey];
+    if (!save.inventory[newKey]) save.inventory[newKey] = { cardId: baseEquipped.cardId, border, count: 0 };
+    save.inventory[newKey].count += 1;
+    save.equipped = save.equipped.map((key) => key === oldKey ? newKey : key).filter((key) => save.inventory[key]);
+    log(`Forged ${border} ${baseEquipped.card.name}.`);
+    writeSave();
     render();
   }
 
-  function healTeam() {
-    if (!state.run) return;
-    if (state.run.gold < 3) {
-      pushLog("Heal costs 3 gold.");
-      render();
-      return;
-    }
-    state.run.gold -= 3;
-    state.run.team.forEach((unit) => {
-      if (unit.hp > 0) unit.hp = Math.min(unit.maxHp, unit.hp + Math.ceil(unit.maxHp * 0.35));
-    });
-    pushLog("Team healed for 35% max HP.");
+  function equipCharm(id) {
+    if (!save.charms[id]) return;
+    save.equippedCharm = save.equippedCharm === id ? "" : id;
+    writeSave();
     render();
   }
 
-  function unitHTML(unit) {
-    const hpPct = Math.max(0, Math.round((unit.hp / unit.maxHp) * 100));
-    const dead = unit.hp <= 0;
+  function resetGame() {
+    if (!confirm("Reset only the 2D game save? The card index will not be affected.")) return;
+    clearInterval(autoRollTimer);
+    autoRollTimer = null;
+    save = defaultSave();
+    writeSave();
+    render();
+  }
+
+  function updateTopStats() {
+    document.querySelector("#statRolls").textContent = compactNumber(save.rolls);
+    document.querySelector("#statWave").textContent = compactNumber(save.wave);
+    document.querySelector("#statCards").textContent = compactNumber(Object.values(save.inventory).reduce((sum, item) => sum + item.count, 0));
+  }
+
+  function cardLabel(item) {
+    return `${item.border ? `${item.border} ` : ""}${item.card.name}`;
+  }
+
+  function lastRollHTML() {
+    if (!save.lastRoll) return `<div class="roll-result empty">Roll to get your first card.</div>`;
+    const card = cardMap.get(save.lastRoll.cardId);
+    if (!card) return `<div class="roll-result empty">Roll loaded.</div>`;
+    const border = save.lastRoll.border || "";
+    const stats = baseStats(card, border);
     return `
-      <article class="game-unit ${dead ? "is-dead" : ""} ${unit.border ? "has-border" : ""}">
-        <div class="game-sprite">${escapeHTML(unit.name.slice(0, 2).toUpperCase())}</div>
-        <div class="game-unit-main">
-          <h3>${escapeHTML(unit.border ? `${unit.border} ${unit.name}` : unit.name)}</h3>
-          <p>${escapeHTML(unit.weather)} • ${escapeHTML(unit.oddsLabel)}</p>
-          <div class="game-bar"><span style="width:${hpPct}%"></span></div>
-          <small>HP ${escapeHTML(unit.hp)}/${escapeHTML(unit.maxHp)} • ATK ${escapeHTML(unitAttack(unit))}</small>
+      <div class="roll-result ${border ? "is-special" : ""}">
+        <span class="roll-card-art">${escapeHTML(card.name.slice(0, 2).toUpperCase())}</span>
+        <div>
+          <p>Last Roll</p>
+          <h2>${escapeHTML(border ? `${border} ${card.name}` : card.name)}</h2>
+          <span>${escapeHTML(card.oddsLabel || `1/${formatNumber(card.odds)}`)} • HP ${formatNumber(stats.hp)} • ATK ${formatNumber(stats.atk)}</span>
         </div>
-      </article>
+      </div>
     `;
   }
 
-  function enemyHTML(enemy) {
-    const hpPct = Math.max(0, Math.round((enemy.hp / enemy.maxHp) * 100));
+  function progressHTML() {
+    const u = unlocked();
+    const rows = [
+      ["NPC Fights", u.fight, "5 rolls"],
+      ["Auto Roll", u.autoRoll, "10 rolls"],
+      ["Crafting", u.crafting, "25 rolls"],
+      ["Charms", u.charms, "40 rolls"],
+      ["Relics", u.relics, "60 rolls / 3 wins / wave 4"]
+    ];
     return `
-      <article class="game-enemy">
-        <div class="enemy-sprite">☠</div>
-        <h3>${escapeHTML(enemy.name)}</h3>
-        <div class="game-bar danger"><span style="width:${hpPct}%"></span></div>
-        <p>HP ${escapeHTML(enemy.hp)}/${escapeHTML(enemy.maxHp)} • ATK ${escapeHTML(enemy.atk)}</p>
-      </article>
+      <div class="unlock-list">
+        ${rows.map(([name, active, req]) => `<span class="${active ? "unlocked" : "locked"}">${active ? "✓" : "○"} ${name}<small>${escapeHTML(req)}</small></span>`).join("")}
+      </div>
     `;
   }
 
-  function relicChoicesHTML() {
-    if (!state.relicChoices.length) return "";
+  function rollPanelHTML() {
+    const u = unlocked();
     return `
-      <section class="game-choice-panel">
-        <h3>Choose a relic</h3>
-        <div class="game-choice-grid">
-          ${state.relicChoices.map((relic, index) => `
-            <button class="game-choice" type="button" data-relic-choice="${index}">
-              <strong>${escapeHTML(relic.icon)} ${escapeHTML(relic.name)}</strong>
-              <span>${escapeHTML(relic.text)}</span>
-            </button>
-          `).join("")}
+      <section class="game-panel roll-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">Roll Cards</p><h2>RNG</h2></div>
+          <div class="wallet"><span>Coins ${formatNumber(save.coins)}</span><span>Dust ${formatNumber(save.dust)}</span></div>
         </div>
-      </section>
-    `;
-  }
-
-  function recruitChoicesHTML() {
-    if (!state.recruitChoices.length) return "";
-    return `
-      <section class="game-choice-panel">
-        <h3>Recruit a card</h3>
-        <div class="game-choice-grid">
-          ${state.recruitChoices.map((card, index) => {
-            const stats = cardPower(card);
-            return `
-              <button class="game-choice" type="button" data-recruit-choice="${index}">
-                <strong>${escapeHTML(card.name)}</strong>
-                <span>${escapeHTML(card.weather || "Base")} • HP ${stats.maxHp} • ATK ${stats.atk}</span>
-              </button>
-            `;
-          }).join("")}
-        </div>
-      </section>
-    `;
-  }
-
-  function runHTML() {
-    const run = state.run;
-    if (!run) return `<button class="game-action primary" type="button" data-game-action="new">Start Run</button>`;
-    const teamHp = aliveTeam().reduce((sum, unit) => sum + unit.hp, 0);
-    return `
-      <div class="game-topline">
-        <div><strong>Wave ${escapeHTML(run.wave)}</strong><span>Team HP ${escapeHTML(teamHp)} • Gold ${escapeHTML(run.gold)} • Damage ${escapeHTML(totalAttack())}</span></div>
+        ${lastRollHTML()}
         <div class="game-actions">
-          <button class="game-action primary" type="button" data-game-action="attack" ${!aliveTeam().length ? "disabled" : ""}>Attack</button>
-          <button class="game-action" type="button" data-game-action="recruit">Recruit 4g</button>
-          <button class="game-action" type="button" data-game-action="forge">Forge Border 5g</button>
-          <button class="game-action" type="button" data-game-action="heal">Heal 3g</button>
-          <button class="game-action ghost" type="button" data-game-action="new">New Run</button>
+          <button class="game-action primary" type="button" data-action="roll">Roll</button>
+          <button class="game-action" type="button" data-action="auto" ${!u.autoRoll ? "disabled" : ""}>${autoRollTimer ? "Stop Auto" : "Auto Roll"}</button>
+          <button class="game-action ghost" type="button" data-action="reset">Reset 2D Save</button>
         </div>
-      </div>
-
-      <div class="game-arena">
-        <section class="game-team">
-          <h3>Your Cards</h3>
-          <div class="game-team-grid">${run.team.map(unitHTML).join("")}</div>
-        </section>
-        <section class="game-battlefield">
-          ${enemyHTML(run.enemy)}
-        </section>
-      </div>
-
-      ${relicChoicesHTML()}
-      ${recruitChoicesHTML()}
-
-      <section class="game-relics">
-        <h3>Relics</h3>
-        <div>${run.relics.length ? run.relics.map((relic) => `<span>${escapeHTML(relic.icon)} ${escapeHTML(relic.name)}</span>`).join("") : `<em>No relics yet.</em>`}</div>
+        ${progressHTML()}
       </section>
+    `;
+  }
 
-      <section class="game-log">
-        <h3>Battle Log</h3>
-        ${run.log.map((line) => `<p>${escapeHTML(line)}</p>`).join("")}
+  function teamHTML() {
+    const team = teamItems();
+    const stats = teamStats();
+    return `
+      <section class="game-panel team-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">Team</p><h2>Equipped Cards</h2></div>
+          <button class="game-action" type="button" data-action="auto-equip">Auto equip best</button>
+        </div>
+        <div class="team-stats"><span>HP ${formatNumber(stats.hp)}</span><span>ATK ${formatNumber(stats.atk)}</span><span>${team.length}/${MAX_TEAM} equipped</span></div>
+        <div class="unit-grid">
+          ${team.length ? team.map((item) => unitCardHTML(item, true)).join("") : `<p class="muted">Roll a card to equip it.</p>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function unitCardHTML(item, equipped = false) {
+    const stats = baseStats(item.card, item.border);
+    const border = item.border || "Base";
+    return `
+      <article class="unit-card ${equipped ? "equipped" : ""} ${lastRollCardKey === item.key ? "newest" : ""}">
+        <div class="unit-art">${escapeHTML(item.card.name.slice(0, 2).toUpperCase())}</div>
+        <div class="unit-main">
+          <h3>${escapeHTML(cardLabel(item))}</h3>
+          <p>${escapeHTML(border)} • ${escapeHTML(item.card.weather || "Base")} • x${formatNumber(item.count)}</p>
+          <small>HP ${formatNumber(stats.hp)} • ATK ${formatNumber(stats.atk)} • ${escapeHTML(item.card.oddsLabel || `1/${formatNumber(item.card.odds)}`)}</small>
+        </div>
+        <button class="mini-button" type="button" data-equip="${escapeHTML(item.key)}">${save.equipped.includes(item.key) ? "Unequip" : "Equip"}</button>
+      </article>
+    `;
+  }
+
+  function inventoryHTML() {
+    const items = allInventoryItems().slice(0, 24);
+    return `
+      <section class="game-panel inventory-panel">
+        <div class="panel-head"><div><p class="eyebrow">Collection</p><h2>Inventory</h2></div><span class="muted">Showing best 24</span></div>
+        <div class="inventory-grid">
+          ${items.length ? items.map((item) => unitCardHTML(item)).join("") : `<p class="muted">No cards yet.</p>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function battleHTML() {
+    const u = unlocked();
+    const enemy = enemyStats();
+    const stats = teamStats();
+    return `
+      <section class="game-panel battle-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">NPC Fight</p><h2>Wave ${formatNumber(save.wave)}</h2></div>
+          <button class="game-action primary" type="button" data-action="fight" ${!u.fight ? "disabled" : ""}>Fight NPC</button>
+        </div>
+        <div class="battle-grid">
+          <div class="battle-side"><strong>Your Team</strong><span>HP ${formatNumber(stats.hp)}</span><span>ATK ${formatNumber(stats.atk)}</span></div>
+          <div class="versus">VS</div>
+          <div class="battle-side enemy"><strong>${escapeHTML(enemy.name)}</strong><span>HP ${formatNumber(enemy.hp)}</span><span>ATK ${formatNumber(enemy.atk)}</span></div>
+        </div>
+        <p class="muted">Fights are separate from the index. Win NPC fights to get coins, dust, wave progress, and relic drops.</p>
+      </section>
+    `;
+  }
+
+  function craftingHTML() {
+    const u = unlocked();
+    const charmCost = craftCost(25, 60);
+    const relicCost = craftCost(55, 120);
+    const forgeCost = craftCost(40, 80);
+    return `
+      <section class="game-panel craft-panel">
+        <div class="panel-head"><div><p class="eyebrow">Crafting</p><h2>Craft / Forge</h2></div></div>
+        <div class="craft-grid">
+          <button class="craft-card" type="button" data-action="forge" ${!u.crafting ? "disabled" : ""}><strong>Forge Border</strong><span>${forgeCost.coins} coins • ${forgeCost.dust} dust</span><small>Adds Shiny/Diamond/Radiant to an equipped base card.</small></button>
+          <button class="craft-card" type="button" data-action="craft-charm" ${!u.charms ? "disabled" : ""}><strong>Craft Charm</strong><span>${charmCost.coins} coins • ${charmCost.dust} dust</span><small>Charms are equipable passive boosts.</small></button>
+          <button class="craft-card" type="button" data-action="craft-relic" ${!u.relics ? "disabled" : ""}><strong>Craft Relic</strong><span>${relicCost.coins} coins • ${relicCost.dust} dust</span><small>Relics stack permanently in this 2D save.</small></button>
+        </div>
+      </section>
+    `;
+  }
+
+  function charmsHTML() {
+    const owned = charmPool.filter((charm) => save.charms[charm.id]);
+    return `
+      <section class="game-panel charm-panel">
+        <div class="panel-head"><div><p class="eyebrow">Charms</p><h2>Equippable</h2></div><span class="muted">1 active</span></div>
+        <div class="badge-grid">
+          ${owned.length ? owned.map((charm) => `
+            <button class="badge-card ${save.equippedCharm === charm.id ? "active" : ""}" type="button" data-charm="${escapeHTML(charm.id)}">
+              <strong>${escapeHTML(charm.icon)} ${escapeHTML(charm.name)} +${save.charms[charm.id]}</strong>
+              <span>${escapeHTML(charm.text)}</span>
+            </button>
+          `).join("") : `<p class="muted">Craft charms after 40 rolls.</p>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function relicsHTML() {
+    const owned = relicPool.filter((relic) => save.relics[relic.id]);
+    return `
+      <section class="game-panel relic-panel">
+        <div class="panel-head"><div><p class="eyebrow">Relics</p><h2>Permanent Drops</h2></div></div>
+        <div class="badge-grid">
+          ${owned.length ? owned.map((relic) => `
+            <article class="badge-card active">
+              <strong>${escapeHTML(relic.icon)} ${escapeHTML(relic.name)} +${save.relics[relic.id]}</strong>
+              <span>${escapeHTML(relic.text)}</span>
+            </article>
+          `).join("") : `<p class="muted">Relics unlock from NPC wins, waves, or crafting.</p>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function logHTML() {
+    return `
+      <section class="game-panel log-panel">
+        <div class="panel-head"><div><p class="eyebrow">Log</p><h2>Recent</h2></div></div>
+        ${save.log.map((line) => `<p>${escapeHTML(line)}</p>`).join("")}
       </section>
     `;
   }
 
   function render() {
-    const root = document.querySelector("#gameRoot");
-    if (!root) return;
-    root.innerHTML = `
-      <section class="game-panel">
-        <div class="game-hero">
-          <div>
-            <p class="eyebrow">Playable Prototype</p>
-            <h2>CardFantasy 2D</h2>
-            <p>Turn-based mini version using the card odds, HP/ATK scaling, borders, weather cards, and relic upgrades.</p>
-          </div>
-          <div class="game-mini-stats">
-            <span>${escapeHTML(state.cards.length)} cards loaded</span>
-            <span>${escapeHTML(state.variants.length || 3)} borders</span>
-            <span>${escapeHTML(relicPool.length)} relics</span>
-          </div>
+    updateTopStats();
+    if (!app) return;
+    app.innerHTML = `
+      <div class="game-layout">
+        <div class="game-left">
+          ${rollPanelHTML()}
+          ${teamHTML()}
+          ${inventoryHTML()}
         </div>
-        ${runHTML()}
-      </section>
+        <div class="game-right">
+          ${battleHTML()}
+          ${craftingHTML()}
+          ${charmsHTML()}
+          ${relicsHTML()}
+          ${logHTML()}
+        </div>
+      </div>
     `;
   }
 
-  async function mount() {
-    const cardGrid = document.querySelector("#cardGrid");
-    const title = document.querySelector("#activeSectionTitle");
-    const count = document.querySelector("#resultCount");
-    const toolbar = document.querySelector("#cardToolbar");
-    const preview = document.querySelector("#previewArea");
-    const compare = document.querySelector("#compareTray");
-
-    document.body.classList.add("section-game", "section-calculator");
-    toolbar?.classList.add("is-hidden");
-    if (preview) preview.hidden = true;
-    if (compare) compare.hidden = true;
-    if (title) title.textContent = "2D Game";
-    if (count) count.textContent = "prototype";
-    if (cardGrid) {
-      cardGrid.className = "card-grid view-grid game-host";
-      cardGrid.innerHTML = `<div id="gameRoot" class="span-all"><section class="game-panel"><p>Loading game...</p></section></div>`;
-    }
-
-    try {
-      await loadData();
-      if (!state.run) newRun();
-      else render();
-    } catch (error) {
-      const root = document.querySelector("#gameRoot");
-      if (root) root.innerHTML = `<section class="game-panel"><h2>Game failed to load</h2><p>Card data did not load yet. Hard refresh and try again.</p></section>`;
-      console.error(error);
-    }
-  }
-
-  function unmountShell() {
-    document.body.classList.remove("section-game");
-    const cardGrid = document.querySelector("#cardGrid");
-    if (cardGrid) cardGrid.className = "card-grid view-grid";
-  }
-
   function bind() {
-    document.addEventListener("click", (event) => {
-      const gameTab = event.target.closest('[data-section="game"]');
-      if (gameTab) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        document.querySelectorAll(".rail-link").forEach((button) => button.classList.toggle("is-active", button === gameTab));
-        mount();
-        return;
-      }
-
-      const otherTab = event.target.closest(".rail-link[data-section]");
-      if (otherTab && otherTab.dataset.section !== "game") unmountShell();
-    }, true);
-
-    document.addEventListener("click", (event) => {
-      const action = event.target.closest("[data-game-action]")?.dataset.gameAction;
-      if (action === "new") newRun();
-      if (action === "attack") attack();
-      if (action === "recruit") showRecruitChoices();
+    app?.addEventListener("click", (event) => {
+      const action = event.target.closest("[data-action]")?.dataset.action;
+      if (action === "roll") rollOnce();
+      if (action === "auto") toggleAutoRoll();
+      if (action === "reset") resetGame();
+      if (action === "auto-equip") autoEquipBest();
+      if (action === "fight") fightNpc();
       if (action === "forge") forgeBorder();
-      if (action === "heal") healTeam();
+      if (action === "craft-charm") craftCharm();
+      if (action === "craft-relic") craftRelic();
 
-      const relicChoice = event.target.closest("[data-relic-choice]");
-      if (relicChoice) chooseRelic(Number(relicChoice.dataset.relicChoice));
+      const equip = event.target.closest("[data-equip]");
+      if (equip) toggleEquip(equip.dataset.equip);
 
-      const recruitChoice = event.target.closest("[data-recruit-choice]");
-      if (recruitChoice) recruit(Number(recruitChoice.dataset.recruitChoice));
+      const charm = event.target.closest("[data-charm]");
+      if (charm) equipCharm(charm.dataset.charm);
     });
   }
 
-  bind();
-  return { mount, newRun };
+  async function init() {
+    loadSave();
+    bind();
+    try {
+      await loadCards();
+      updateTopStats();
+      render();
+    } catch (error) {
+      console.error(error);
+      app.innerHTML = `<section class="game-panel"><h2>Could not load cards</h2><p>The game page reads from data/cards.json. Hard refresh after GitHub Pages finishes rebuilding.</p></section>`;
+    }
+  }
+
+  init();
 })();
