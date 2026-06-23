@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=15" />
-  <link rel="stylesheet" href="fixes.css?v=15" />
-  <link rel="stylesheet" href="revamp.css?v=15" />
-  <link rel="stylesheet" href="layout-presets.css?v=15" />
+  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="fixes.css?v=16" />
+  <link rel="stylesheet" href="revamp.css?v=16" />
+  <link rel="stylesheet" href="layout-presets.css?v=16" />
 </head>
 <body class="layout-floating theme-abyss">
   <button class="settings-button" id="settingsButton" type="button" aria-label="Open color settings">⚙</button>
@@ -102,8 +102,9 @@
           <div class="card-grid view-grid" id="cardGrid" aria-live="polite"></div>
         </div>
 
-        <aside class="preview-area" aria-label="Selected card preview">
+        <aside class="preview-area" id="previewArea" aria-label="Selected card preview">
           <div class="preview-card" id="previewCard">
+            <button class="preview-close" id="previewClose" type="button" aria-label="Close card details">×</button>
             <p class="eyebrow">Selected</p>
             <div class="preview-art card-image-frame" id="previewArt" aria-hidden="true">
               <span class="image-empty"></span>
@@ -134,7 +135,7 @@
     </main>
   </div>
 
-  <script src="script.js?v=15"></script>
-  <script src="format-options.js?v=15"></script>
+  <script src="script.js?v=16"></script>
+  <script src="format-options.js?v=16"></script>
 </body>
 </html>
