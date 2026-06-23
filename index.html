@@ -8,12 +8,37 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=11" />
-  <link rel="stylesheet" href="fixes.css?v=11" />
-  <link rel="stylesheet" href="revamp.css?v=11" />
-  <link rel="stylesheet" href="layout-presets.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="stylesheet" href="fixes.css?v=12" />
+  <link rel="stylesheet" href="revamp.css?v=12" />
+  <link rel="stylesheet" href="layout-presets.css?v=12" />
 </head>
 <body>
+  <button class="settings-button" id="settingsButton" type="button" aria-label="Open color settings">⚙</button>
+
+  <div class="settings-panel" id="settingsPanel" aria-hidden="true">
+    <div class="settings-card" role="dialog" aria-label="Color settings">
+      <div class="settings-head">
+        <h2>Color Theme</h2>
+        <button class="settings-close" id="settingsClose" type="button" aria-label="Close settings">×</button>
+      </div>
+      <div class="theme-grid" id="themeControls" aria-label="Theme options">
+        <button class="theme-choice is-active" type="button" data-theme="abyss">Abyss</button>
+        <button class="theme-choice" type="button" data-theme="blood">Blood</button>
+        <button class="theme-choice" type="button" data-theme="gold">Gold</button>
+        <button class="theme-choice" type="button" data-theme="frost">Frost</button>
+        <button class="theme-choice" type="button" data-theme="forest">Forest</button>
+        <button class="theme-choice" type="button" data-theme="void">Void</button>
+        <button class="theme-choice" type="button" data-theme="ember">Ember</button>
+        <button class="theme-choice" type="button" data-theme="royal">Royal</button>
+        <button class="theme-choice" type="button" data-theme="ash">Ash</button>
+        <button class="theme-choice" type="button" data-theme="ocean">Ocean</button>
+        <button class="theme-choice" type="button" data-theme="rose">Rose</button>
+        <button class="theme-choice" type="button" data-theme="bone">Bone</button>
+      </div>
+    </div>
+  </div>
+
   <div class="site-shell">
     <aside class="left-rail" aria-label="Main navigation">
       <a class="brand" href="#top" aria-label="CardFantasy Codex home">
@@ -50,20 +75,20 @@
       </section>
 
       <section class="site-controls" aria-label="Display options">
-        <div class="preset-toolbar" id="presetControls" aria-label="Twelve full layout presets">
-          <span>12 Layouts</span>
-          <button class="preset-option is-active" type="button" data-preset="tome">1 Tome</button>
-          <button class="preset-option" type="button" data-preset="topbar">2 Topbar</button>
-          <button class="preset-option" type="button" data-preset="library">3 Library</button>
-          <button class="preset-option" type="button" data-preset="preview">4 Preview</button>
-          <button class="preset-option" type="button" data-preset="blood">5 Red</button>
-          <button class="preset-option" type="button" data-preset="frost">6 Frost</button>
-          <button class="preset-option" type="button" data-preset="forest">7 Forest</button>
-          <button class="preset-option" type="button" data-preset="void">8 Void</button>
-          <button class="preset-option" type="button" data-preset="ember">9 Ember</button>
-          <button class="preset-option" type="button" data-preset="royal">10 Royal</button>
-          <button class="preset-option" type="button" data-preset="minimal">11 Minimal</button>
-          <button class="preset-option" type="button" data-preset="bone">12 Bone</button>
+        <div class="layout-choice-toolbar" id="layoutControls" aria-label="Twelve layout options">
+          <span>Layout</span>
+          <button class="layout-choice is-active" type="button" data-layout="tome">1 Tome</button>
+          <button class="layout-choice" type="button" data-layout="topdeck">2 Top Deck</button>
+          <button class="layout-choice" type="button" data-layout="atlas">3 Atlas</button>
+          <button class="layout-choice" type="button" data-layout="preview-left">4 Preview Left</button>
+          <button class="layout-choice" type="button" data-layout="clean">5 Clean</button>
+          <button class="layout-choice" type="button" data-layout="split">6 Split Book</button>
+          <button class="layout-choice" type="button" data-layout="wall">7 Card Wall</button>
+          <button class="layout-choice" type="button" data-layout="right-rail">8 Right Rail</button>
+          <button class="layout-choice" type="button" data-layout="archive">9 Archive</button>
+          <button class="layout-choice" type="button" data-layout="floating">10 Floating</button>
+          <button class="layout-choice" type="button" data-layout="minimal">11 Minimal</button>
+          <button class="layout-choice" type="button" data-layout="codex">12 Codex Desk</button>
         </div>
       </section>
 
@@ -127,7 +152,7 @@
     </main>
   </div>
 
-  <script src="script.js?v=11"></script>
-  <script src="format-options.js?v=11"></script>
+  <script src="script.js?v=12"></script>
+  <script src="format-options.js?v=12"></script>
 </body>
 </html>
