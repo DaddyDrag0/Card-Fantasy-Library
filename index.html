@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="fixes.css" />
+  <link rel="stylesheet" href="revamp.css" />
 </head>
 <body>
   <div class="site-shell">
@@ -43,7 +44,7 @@
     <main class="main-panel" id="top">
       <section class="hero-card" aria-labelledby="pageTitle">
         <div>
-          <p class="eyebrow">Mini wiki • searchable index</p>
+          <p class="eyebrow">Dark tome • searchable index</p>
           <h1 id="pageTitle">CardFantasy Codex</h1>
           <p class="hero-copy">Search extracted cards, sort by weather, view HP / ATK / odds / abilities, and test Shiny / Diamond / Radiant border combinations on the selected card.</p>
         </div>
@@ -62,6 +63,13 @@
               <input id="searchInput" type="search" placeholder="Search card, ability, odds, weather..." autocomplete="off" />
             </label>
 
+            <div class="format-toolbar" id="formatControls" aria-label="Index format options">
+              <span>Format</span>
+              <button class="format-option is-active" type="button" data-view="grid">Card Grid</button>
+              <button class="format-option" type="button" data-view="codex">Codex Rows</button>
+              <button class="format-option" type="button" data-view="compact">Compact Tome</button>
+            </div>
+
             <div class="filter-pills" id="weatherFilters" aria-label="Weather filters">
               <button class="filter-pill is-active" type="button" data-weather="all">All</button>
             </div>
@@ -75,7 +83,7 @@
             <p id="resultCount" class="result-count">0 results</p>
           </div>
 
-          <div class="card-grid" id="cardGrid" aria-live="polite"></div>
+          <div class="card-grid view-grid" id="cardGrid" aria-live="polite"></div>
         </div>
 
         <aside class="preview-area" aria-label="Selected card preview">
@@ -112,5 +120,6 @@
   </div>
 
   <script src="script.js"></script>
+  <script src="format-options.js"></script>
 </body>
 </html>
