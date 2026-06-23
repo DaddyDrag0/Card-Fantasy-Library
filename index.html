@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CardFantasy Codex</title>
-  <meta name="description" content="A dark fantasy mini wiki and searchable card index for CardFantasy RNG." />
+  <meta name="description" content="Card index for CardFantasy RNG." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -33,34 +33,45 @@
           <span>Chance Calc</span>
         </button>
       </nav>
-
-      <div class="rail-note">
-        <span>Current build</span>
-        <strong>Card index first</strong>
-        <small>Relics, potions, charms, classes, and gamepasses are hidden for now.</small>
-      </div>
     </aside>
 
     <main class="main-panel" id="top">
       <section class="hero-card" aria-labelledby="pageTitle">
         <div>
-          <p class="eyebrow">Dark tome • searchable index</p>
           <h1 id="pageTitle">CardFantasy Codex</h1>
-          <p class="hero-copy">Search extracted cards, sort by weather, view HP / ATK / odds / abilities, and test Shiny / Diamond / Radiant border combinations on the selected card.</p>
+          <p class="hero-copy">Cards, weather filters, HP / ATK, odds, abilities, and borders.</p>
         </div>
         <div class="hero-stats" aria-label="Library stats">
           <div><strong id="totalCards">0</strong><span>Cards</span></div>
           <div><strong id="totalWeather">0</strong><span>Weather</span></div>
-          <div><strong id="totalVariants">0</strong><span>Modifiers</span></div>
+          <div><strong id="totalVariants">0</strong><span>Borders</span></div>
         </div>
       </section>
 
-      <section class="layout-toolbar" id="pageLayoutControls" aria-label="Page layout options">
-        <span>Page Layout</span>
-        <button class="layout-option is-active" type="button" data-layout="sidebar">Sidebar Tome</button>
-        <button class="layout-option" type="button" data-layout="topbar">Top Bar</button>
-        <button class="layout-option" type="button" data-layout="wide">Wide Library</button>
-        <button class="layout-option" type="button" data-layout="focus">Focus Preview</button>
+      <section class="site-controls" aria-label="Display options">
+        <div class="layout-toolbar" id="pageLayoutControls" aria-label="Page layout options">
+          <span>Layout</span>
+          <button class="layout-option is-active" type="button" data-layout="sidebar">Sidebar</button>
+          <button class="layout-option" type="button" data-layout="topbar">Top Bar</button>
+          <button class="layout-option" type="button" data-layout="wide">Wide</button>
+          <button class="layout-option" type="button" data-layout="focus">Preview Left</button>
+        </div>
+
+        <div class="style-toolbar" id="themeControls" aria-label="Theme options">
+          <span>Style</span>
+          <button class="style-option is-active" type="button" data-theme="abyss">Abyss</button>
+          <button class="style-option" type="button" data-theme="blood">Blood</button>
+          <button class="style-option" type="button" data-theme="gold">Gold</button>
+          <button class="style-option" type="button" data-theme="frost">Frost</button>
+          <button class="style-option" type="button" data-theme="forest">Forest</button>
+          <button class="style-option" type="button" data-theme="void">Void</button>
+          <button class="style-option" type="button" data-theme="ember">Ember</button>
+          <button class="style-option" type="button" data-theme="royal">Royal</button>
+          <button class="style-option" type="button" data-theme="ash">Ash</button>
+          <button class="style-option" type="button" data-theme="ocean">Ocean</button>
+          <button class="style-option" type="button" data-theme="rose">Rose</button>
+          <button class="style-option" type="button" data-theme="bone">Bone</button>
+        </div>
       </section>
 
       <section class="content-grid">
@@ -72,7 +83,7 @@
             </label>
 
             <div class="format-toolbar" id="formatControls" aria-label="Index format options">
-              <span>Card Format</span>
+              <span>Cards</span>
               <button class="format-option is-active" type="button" data-view="grid">Grid</button>
               <button class="format-option" type="button" data-view="codex">Rows</button>
               <button class="format-option" type="button" data-view="compact">Compact</button>
@@ -85,7 +96,6 @@
 
           <div class="section-header">
             <div>
-              <p class="eyebrow" id="activeSectionLabel">Index</p>
               <h2 id="activeSectionTitle">Index</h2>
             </div>
             <p id="resultCount" class="result-count">0 results</p>
@@ -98,14 +108,13 @@
           <div class="preview-card" id="previewCard">
             <p class="eyebrow">Selected</p>
             <div class="preview-art" id="previewArt" aria-hidden="true">
-              <span class="fallback-symbol">✦</span>
+              <span class="image-empty"></span>
             </div>
             <h2 id="previewName">Select a card</h2>
-            <p id="previewMeta" class="preview-meta">Click any card to view details.</p>
+            <p id="previewMeta" class="preview-meta">Click a card to view details.</p>
 
             <div class="modifier-box">
-              <h3>Borders / Modifiers</h3>
-              <p>Select multiple at once. HP, ATK, and odds update from the selected border modifiers. Weather cards also apply their weather multiplier.</p>
+              <h3>Borders</h3>
               <div class="modifier-controls" id="modifierControls"></div>
             </div>
 
