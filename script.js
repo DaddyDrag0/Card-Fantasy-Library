@@ -9,6 +9,7 @@ const fallbackData = {
 const NEUTRAL_CARD_COLOR = "#8c8170";
 const BORDER_NAME_ORDER = ["Shiny", "Diamond", "Radiant"];
 const CARD_IMAGE_EXTENSIONS = ["png", "webp", "jpg", "jpeg"];
+const MOBILE_PREVIEW_QUERY = "(max-width: 820px)";
 
 const state = {
   data: fallbackData,
@@ -24,6 +25,7 @@ const cardGrid = document.querySelector("#cardGrid");
 const searchInput = document.querySelector("#searchInput");
 const resultCount = document.querySelector("#resultCount");
 const activeSectionTitle = document.querySelector("#activeSectionTitle");
+const previewArea = document.querySelector("#previewArea");
 const previewCard = document.querySelector("#previewCard");
 const previewArt = document.querySelector("#previewArt");
 const previewName = document.querySelector("#previewName");
@@ -38,6 +40,7 @@ const previewAbility = document.querySelector("#previewAbility");
 const previewSource = document.querySelector("#previewSource");
 const modifierControls = document.querySelector("#modifierControls");
 const copyCardButton = document.querySelector("#copyCardButton");
+const previewClose = document.querySelector("#previewClose");
 const weatherFilters = document.querySelector("#weatherFilters");
 
 function escapeHTML(value) {
@@ -55,6 +58,19 @@ function normalize(value) {
 
 function isRollableCard(card) {
   return Number(card?.odds) > 0 && !String(card?.oddsLabel || "").toLowerCase().includes("not rollable");
+}
+
+function isMobilePreviewMode() {
+  return window.matchMedia(MOBILE_PREVIEW_QUERY).matches;
+}
+
+function openPreviewModal() {
+  if (!isMobilePreviewMode()) return;
+  document.body.classList.add("preview-open");
+}
+
+function closePreviewModal() {
+  document.body.classList.remove("preview-open");
 }
 
 function titleCaseAbility(value) {
@@ -257,6 +273,7 @@ function renderIndex() {
 }
 
 function renderCalculatorSoon() {
+  closePreviewModal();
   activeSectionTitle.textContent = "Chance Calc";
   resultCount.textContent = "";
   weatherFilters.style.display = "none";
@@ -285,7 +302,7 @@ function renderCurrentSection() {
 
   renderIndex();
   const visible = getVisibleCards();
-  if (!visible.some((card) => card.id === state.selectedId)) selectItem(visible[0]?.id);
+  if (!visible.some((card) => card.id === state.selectedId)) selectItem(visible[0]?.id, false);
   else updatePreview();
 }
 
@@ -337,17 +354,19 @@ function updatePreview() {
   renderBorderControls();
 }
 
-function selectItem(id) {
+function selectItem(id, shouldOpenPreview = true) {
   const card = state.cards.find((item) => item.id === id) || getVisibleCards()[0] || state.cards[0];
   if (!card) return;
   state.selectedId = card.id;
   updatePreview();
   if (state.activeSection === "index") renderIndex();
+  if (shouldOpenPreview) openPreviewModal();
 }
 
 function setActiveSection(section) {
   state.activeSection = section;
   state.selectedId = null;
+  closePreviewModal();
   document.querySelectorAll(".rail-link").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.section === section);
   });
@@ -357,6 +376,7 @@ function setActiveSection(section) {
 function wireEvents() {
   searchInput.addEventListener("input", (event) => {
     state.query = event.target.value;
+    closePreviewModal();
     renderCurrentSection();
   });
 
@@ -370,6 +390,7 @@ function wireEvents() {
     const button = event.target.closest("[data-weather]");
     if (!button) return;
     state.activeWeather = button.dataset.weather;
+    closePreviewModal();
     document.querySelectorAll(".filter-pill").forEach((pill) => {
       pill.classList.toggle("is-active", pill === button);
     });
@@ -381,6 +402,12 @@ function wireEvents() {
     if (!button) return;
     selectItem(button.dataset.id);
   });
+
+  previewArea?.addEventListener("click", (event) => {
+    if (event.target === previewArea) closePreviewModal();
+  });
+
+  previewClose?.addEventListener("click", closePreviewModal);
 
   modifierControls.addEventListener("click", (event) => {
     const button = event.target.closest("[data-modifier]");
@@ -402,6 +429,14 @@ function wireEvents() {
     } catch {
       copyCardButton.textContent = card.name;
     }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!isMobilePreviewMode()) closePreviewModal();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closePreviewModal();
   });
 }
 
