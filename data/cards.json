@@ -1,0 +1,158 @@
+{
+  "cards": [
+    {
+      "id": "book-of-luck",
+      "name": "Book of Luck",
+      "rarity": "Common",
+      "section": "cards",
+      "stat": "+22 Luck",
+      "source": "World Drop",
+      "borders": ["Plain", "Gold"],
+      "symbol": "✦",
+      "color": "#a6a6a6"
+    },
+    {
+      "id": "frost-oracle",
+      "name": "Frost Oracle",
+      "rarity": "Rare",
+      "section": "cards",
+      "stat": "+10% Luck",
+      "source": "Blizzard Event",
+      "borders": ["Plain", "Frost"],
+      "symbol": "☽",
+      "color": "#54abdc"
+    },
+    {
+      "id": "night-warden",
+      "name": "Night Warden",
+      "rarity": "Epic",
+      "section": "cards",
+      "stat": "+40 Luck",
+      "source": "Dungeon",
+      "borders": ["Plain", "Void", "Gold", "Abyss"],
+      "symbol": "◇",
+      "color": "#ae5fe6"
+    },
+    {
+      "id": "ashen-crown",
+      "name": "Ashen Crown",
+      "rarity": "Legendary",
+      "section": "cards",
+      "stat": "+8% Roll Speed",
+      "source": "Event Boss",
+      "borders": ["Plain", "Blood", "Gold"],
+      "symbol": "✚",
+      "color": "#e6604d"
+    },
+    {
+      "id": "moon-reliquary",
+      "name": "Moon Reliquary",
+      "rarity": "Mythic",
+      "section": "cards",
+      "stat": "+75 Luck",
+      "source": "Moon Event",
+      "borders": ["Plain", "Moon", "Gold", "Shiny", "Void", "Ancient"],
+      "symbol": "☽",
+      "color": "#deb850"
+    },
+    {
+      "id": "grave-sigil",
+      "name": "Grave Sigil",
+      "rarity": "Uncommon",
+      "section": "cards",
+      "stat": "+15 Luck",
+      "source": "Crafting",
+      "borders": ["Plain"],
+      "symbol": "✦",
+      "color": "#5cc173"
+    },
+    {
+      "id": "eclipse-tome",
+      "name": "Eclipse Tome",
+      "rarity": "Mythic",
+      "section": "cards",
+      "stat": "+12% Roll Speed",
+      "source": "Eclipse Set",
+      "borders": ["Plain", "Void", "Gold"],
+      "symbol": "◌",
+      "color": "#deb850"
+    },
+    {
+      "id": "blood-bell",
+      "name": "Blood Bell",
+      "rarity": "Legendary",
+      "section": "cards",
+      "stat": "+55 Luck",
+      "source": "Limited Event",
+      "borders": ["Plain", "Blood"],
+      "symbol": "✚",
+      "color": "#e6604d"
+    },
+    {
+      "id": "void-border",
+      "name": "Void Border",
+      "rarity": "Epic",
+      "section": "borders",
+      "stat": "Cosmetic Frame",
+      "source": "Dungeon Chest",
+      "borders": ["Void"],
+      "symbol": "◇",
+      "color": "#ae5fe6"
+    },
+    {
+      "id": "gold-border",
+      "name": "Gold Border",
+      "rarity": "Legendary",
+      "section": "borders",
+      "stat": "Cosmetic Frame",
+      "source": "Rare Upgrade",
+      "borders": ["Gold"],
+      "symbol": "◇",
+      "color": "#deb850"
+    },
+    {
+      "id": "athena-set",
+      "name": "Athena Set",
+      "rarity": "Mythic",
+      "section": "sets",
+      "stat": "Luck Build",
+      "source": "Set Bonus",
+      "borders": ["Gold", "Shiny"],
+      "symbol": "☼",
+      "color": "#deb850"
+    },
+    {
+      "id": "blizzard-set",
+      "name": "Blizzard Set",
+      "rarity": "Rare",
+      "section": "sets",
+      "stat": "Speed Build",
+      "source": "Weather Set",
+      "borders": ["Frost"],
+      "symbol": "☽",
+      "color": "#54abdc"
+    },
+    {
+      "id": "luck-potion-1",
+      "name": "Luck Potion I",
+      "rarity": "Rare",
+      "section": "potions",
+      "stat": "+10% Luck / 240s",
+      "source": "Potion Shop",
+      "borders": ["Bottle"],
+      "symbol": "✚",
+      "color": "#54abdc"
+    },
+    {
+      "id": "starter-guide",
+      "name": "Starter Luck Guide",
+      "rarity": "Common",
+      "section": "guides",
+      "stat": "Beginner Build",
+      "source": "Guide Page",
+      "borders": ["Guide"],
+      "symbol": "?",
+      "color": "#a6a6a6"
+    }
+  ]
+}
