@@ -22,6 +22,7 @@ const state = {
 };
 
 const cardGrid = document.querySelector("#cardGrid");
+const cardToolbar = document.querySelector("#cardToolbar");
 const searchInput = document.querySelector("#searchInput");
 const resultCount = document.querySelector("#resultCount");
 const activeSectionTitle = document.querySelector("#activeSectionTitle");
@@ -62,6 +63,13 @@ function isRollableCard(card) {
 
 function isMobilePreviewMode() {
   return window.matchMedia(MOBILE_PREVIEW_QUERY).matches;
+}
+
+function setIndexPanelMode(isIndex) {
+  document.body.classList.toggle("section-calculator", !isIndex);
+  cardToolbar?.classList.toggle("is-hidden", !isIndex);
+  if (previewArea) previewArea.hidden = !isIndex;
+  if (!isIndex) closePreviewModal();
 }
 
 function openPreviewModal() {
@@ -265,6 +273,7 @@ function cardTileHTML(card) {
 }
 
 function renderIndex() {
+  setIndexPanelMode(true);
   const cards = getVisibleCards();
   activeSectionTitle.textContent = "Index";
   resultCount.textContent = `${cards.length} result${cards.length === 1 ? "" : "s"}`;
@@ -273,25 +282,10 @@ function renderIndex() {
 }
 
 function renderCalculatorSoon() {
-  closePreviewModal();
+  setIndexPanelMode(false);
   activeSectionTitle.textContent = "Chance Calc";
   resultCount.textContent = "";
-  weatherFilters.style.display = "none";
   cardGrid.innerHTML = `<article class="info-panel span-all calc-soon"><h3>Chance calculator</h3><p>Not added yet.</p></article>`;
-  previewCard.classList.remove("has-modifiers");
-  previewArt.className = "preview-art card-image-frame";
-  previewArt.innerHTML = `<span class="image-empty" aria-hidden="true"></span>`;
-  previewName.textContent = "Chance Calc";
-  previewMeta.textContent = "Not added yet.";
-  previewBaseHP.textContent = "—";
-  previewBaseATK.textContent = "—";
-  previewCurrentHP.textContent = "—";
-  previewCurrentATK.textContent = "—";
-  previewBaseOdds.textContent = "—";
-  previewCurrentOdds.textContent = "—";
-  previewAbility.textContent = "—";
-  previewSource.textContent = "—";
-  renderBorderControls();
 }
 
 function renderCurrentSection() {
