@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CardFantasy 2D</title>
+  <meta name="description" content="Standalone 2D mini game for CardFantasy RNG." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=25" />
+  <link rel="stylesheet" href="game.css?v=25" />
+</head>
+<body class="theme-abyss game-page">
+  <div class="game-shell">
+    <aside class="game-rail">
+      <a class="brand" href="index.html" aria-label="Back to CardFantasy Codex">
+        <span class="brand-mark">CF</span>
+        <span>
+          <strong>2D Game</strong>
+          <small>Fun prototype</small>
+        </span>
+      </a>
+
+      <nav class="rail-nav game-nav" aria-label="Game navigation">
+        <a class="rail-link" href="index.html">
+          <span class="rail-icon">✦</span>
+          <span>Index</span>
+        </a>
+        <button class="rail-link is-active" type="button">
+          <span class="rail-icon">▣</span>
+          <span>2D Game</span>
+        </button>
+      </nav>
+
+      <p class="game-note">This page is separate from the card index. It only reads the card data and stores game progress in its own save.</p>
+    </aside>
+
+    <main class="game-main">
+      <section class="game-title-card">
+        <div>
+          <p class="eyebrow">Standalone Fun Mode</p>
+          <h1>CardFantasy 2D</h1>
+          <p>Roll cards, unlock auto roll, equip your team, fight NPCs, craft charms, forge borders, and collect relics.</p>
+        </div>
+        <div class="game-title-stats">
+          <div><strong id="statRolls">0</strong><span>Rolls</span></div>
+          <div><strong id="statWave">1</strong><span>Wave</span></div>
+          <div><strong id="statCards">0</strong><span>Owned</span></div>
+        </div>
+      </section>
+
+      <section id="gameApp" class="game-app" aria-live="polite">
+        <div class="game-panel"><p>Loading 2D game...</p></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="game.js?v=25"></script>
+</body>
+</html>
