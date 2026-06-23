@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=17" />
-  <link rel="stylesheet" href="fixes.css?v=17" />
-  <link rel="stylesheet" href="revamp.css?v=17" />
-  <link rel="stylesheet" href="layout-presets.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=18" />
+  <link rel="stylesheet" href="fixes.css?v=18" />
+  <link rel="stylesheet" href="revamp.css?v=18" />
+  <link rel="stylesheet" href="layout-presets.css?v=18" />
 </head>
 <body class="layout-floating theme-abyss">
   <button class="settings-button" id="settingsButton" type="button" aria-label="Open color settings">⚙</button>
@@ -118,10 +118,10 @@
             </div>
 
             <dl class="stat-list">
-              <div><dt>Base HP</dt><dd id="previewBaseHP">—</dd></div>
-              <div><dt>Base ATK</dt><dd id="previewBaseATK">—</dd></div>
-              <div><dt>Current HP</dt><dd id="previewCurrentHP">—</dd></div>
-              <div><dt>Current ATK</dt><dd id="previewCurrentATK">—</dd></div>
+              <div><dt>HP</dt><dd id="previewBaseHP">—</dd></div>
+              <div><dt>ATK</dt><dd id="previewBaseATK">—</dd></div>
+              <div class="sync-hidden-row"><dt>Current HP</dt><dd id="previewCurrentHP">—</dd></div>
+              <div class="sync-hidden-row"><dt>Current ATK</dt><dd id="previewCurrentATK">—</dd></div>
               <div><dt>Base Odds</dt><dd id="previewBaseOdds">—</dd></div>
               <div><dt>Current Odds</dt><dd id="previewCurrentOdds">—</dd></div>
               <div><dt>Ability</dt><dd id="previewAbility">—</dd></div>
@@ -135,7 +135,8 @@
     </main>
   </div>
 
-  <script src="script.js?v=17"></script>
-  <script src="format-options.js?v=17"></script>
+  <script src="script.js?v=18"></script>
+  <script src="format-options.js?v=18"></script>
+  <script src="card-sync.js?v=18"></script>
 </body>
 </html>
