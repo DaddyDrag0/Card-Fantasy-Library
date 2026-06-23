@@ -8,10 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=21" />
-  <link rel="stylesheet" href="fixes.css?v=21" />
-  <link rel="stylesheet" href="revamp.css?v=21" />
-  <link rel="stylesheet" href="layout-presets.css?v=21" />
+  <link rel="stylesheet" href="styles.css?v=22" />
+  <link rel="stylesheet" href="fixes.css?v=22" />
+  <link rel="stylesheet" href="revamp.css?v=22" />
+  <link rel="stylesheet" href="layout-presets.css?v=22" />
+  <link rel="stylesheet" href="features.css?v=22" />
 </head>
 <body class="layout-floating theme-abyss">
   <button class="settings-button" id="settingsButton" type="button" aria-label="Open color settings">⚙</button>
@@ -36,6 +37,13 @@
         <button class="theme-choice" type="button" data-theme="rose">Rose</button>
         <button class="theme-choice" type="button" data-theme="bone">Bone</button>
       </div>
+    </div>
+  </div>
+
+  <div class="detail-modal" id="detailModal" aria-hidden="true">
+    <div class="detail-card" role="dialog" aria-label="Card details">
+      <button class="detail-close" id="detailClose" type="button" aria-label="Close card details">×</button>
+      <div id="detailContent"></div>
     </div>
   </div>
 
@@ -82,6 +90,18 @@
               <input id="searchInput" type="search" placeholder="Search card, ability, odds, weather..." autocomplete="off" />
             </label>
 
+            <div class="utility-toolbar" aria-label="Index tools">
+              <label class="sort-wrap" for="sortSelect">
+                <span>Sort</span>
+                <select id="sortSelect">
+                  <option value="lowest">Lowest odds</option>
+                  <option value="highest">Highest odds</option>
+                </select>
+              </label>
+              <button class="utility-button" id="compareModeButton" type="button">Compare cards</button>
+              <button class="utility-button ghost" id="clearCompareButton" type="button" hidden>Clear compare</button>
+            </div>
+
             <div class="format-toolbar" id="formatControls" aria-label="Card list format">
               <span>Cards</span>
               <button class="format-option is-active" type="button" data-view="grid">Grid</button>
@@ -93,6 +113,8 @@
               <button class="filter-pill is-active" type="button" data-weather="all">All</button>
             </div>
           </div>
+
+          <div class="compare-tray" id="compareTray" hidden></div>
 
           <div class="section-header">
             <div><h2 id="activeSectionTitle">Index</h2></div>
@@ -128,15 +150,17 @@
               <div><dt>Source</dt><dd id="previewSource">—</dd></div>
             </dl>
 
-            <button class="primary-action" type="button" id="copyCardButton">Copy card name</button>
+            <div class="preview-actions">
+              <button class="secondary-action" type="button" id="viewDetailsButton">View details</button>
+              <button class="primary-action" type="button" id="copyCardButton">Copy card name</button>
+            </div>
           </div>
         </aside>
       </section>
     </main>
   </div>
 
-  <script src="script.js?v=21"></script>
-  <script src="format-options.js?v=21"></script>
-  <script src="card-sync.js?v=21"></script>
+  <script src="script.js?v=22"></script>
+  <script src="format-options.js?v=22"></script>
 </body>
 </html>
