@@ -9,7 +9,8 @@ const fallbackData = {
 };
 
 const NEUTRAL_CARD_COLOR = "#8c8170";
-const MODIFIER_NAME_ORDER = ["Shiny", "Diamond", "Radiant"];
+const BORDER_NAME_ORDER = ["Shiny", "Diamond", "Radiant"];
+const CARD_IMAGE_EXTENSIONS = ["png", "webp", "jpg", "jpeg"];
 
 const state = {
   data: fallbackData,
@@ -18,7 +19,7 @@ const state = {
   activeWeather: "all",
   query: "",
   selectedId: null,
-  selectedModifiers: new Set()
+  selectedBorders: new Set()
 };
 
 const cardGrid = document.querySelector("#cardGrid");
@@ -87,19 +88,37 @@ function formatOdds(value) {
   return `1/${formatNumber(value)}`;
 }
 
-function cardSymbol(item) {
-  const text = `${item.name || ""} ${item.ability || ""} ${item.abilityType || ""} ${item.weather || ""}`.toLowerCase();
-  if (text.includes("dragon") || text.includes("wyvern") || text.includes("drake")) return "◆";
-  if (text.includes("mage") || text.includes("witch") || text.includes("spell") || text.includes("arcane")) return "✦";
-  if (text.includes("king") || text.includes("lord") || text.includes("ruler") || text.includes("sovereign")) return "♛";
-  if (text.includes("skeleton") || text.includes("bone") || text.includes("grave") || text.includes("death")) return "☠";
-  if (text.includes("moon") || text.includes("lunar") || text.includes("night")) return "☽";
-  if (text.includes("sun") || text.includes("solar") || text.includes("fire") || text.includes("ember") || text.includes("phoenix")) return "☼";
-  if (text.includes("sea") || text.includes("water") || text.includes("kraken") || text.includes("deep")) return "≈";
-  if (text.includes("wolf") || text.includes("bear") || text.includes("beast") || text.includes("panther")) return "◈";
-  if (text.includes("shield") || text.includes("guardian") || text.includes("paladin") || text.includes("knight")) return "⬟";
-  if (text.includes("poison") || text.includes("shroom") || text.includes("fungal") || text.includes("slime")) return "✣";
-  return "✦";
+function getImageCandidates(item) {
+  const basePath = item.image || item.imagePath || `assets/cards/${item.id}`;
+  const hasExtension = /\.(png|webp|jpg|jpeg|gif)$/i.test(basePath);
+  if (hasExtension) return [basePath];
+  return CARD_IMAGE_EXTENSIONS.map((ext) => `${basePath}.${ext}`);
+}
+
+window.tryNextCardImage = function tryNextCardImage(img) {
+  const candidates = (img.dataset.candidates || "").split("|").filter(Boolean);
+  const nextIndex = Number(img.dataset.fallbackIndex || 0) + 1;
+
+  if (candidates[nextIndex]) {
+    img.dataset.fallbackIndex = String(nextIndex);
+    img.src = candidates[nextIndex];
+    return;
+  }
+
+  img.parentElement?.classList.remove("has-card-image");
+  img.remove();
+};
+
+window.cardImageLoaded = function cardImageLoaded(img) {
+  img.parentElement?.classList.add("has-card-image");
+};
+
+function cardImageHTML(item) {
+  const candidates = getImageCandidates(item);
+  return `
+    <span class="image-empty" aria-hidden="true"></span>
+    <img class="card-real-image" src="${escapeHTML(candidates[0])}" data-candidates="${escapeHTML(candidates.join("|"))}" data-fallback-index="0" alt="" loading="lazy" onload="cardImageLoaded(this)" onerror="tryNextCardImage(this)">
+  `;
 }
 
 function cardAccent(item) {
@@ -116,14 +135,6 @@ function cardAccent(item) {
   if (name.includes("void") || name.includes("rift") || name.includes("abyss")) return "#9d63e6";
   if (name.includes("moon") || name.includes("lunar") || name.includes("night")) return "#8f96ff";
   return "#b69a62";
-}
-
-function generatedArtHTML(item) {
-  return `
-    <span class="generated-vignette"></span>
-    <span class="generated-rune">${escapeHTML(cardSymbol(item))}</span>
-    <span class="generated-name">${escapeHTML((item.name || "?").slice(0, 1))}</span>
-  `;
 }
 
 function getSearchBlob(item) {
@@ -164,39 +175,38 @@ function getSelectedCard() {
   return state.cards.find((card) => card.id === state.selectedId) || getVisibleCards()[0] || state.cards[0] || null;
 }
 
-function selectedModifierNames() {
-  const knownModifierNames = (state.data.meta?.variants || []).map((variant) => variant.name);
-  const orderedNames = [...new Set([...MODIFIER_NAME_ORDER, ...knownModifierNames])];
-  const selected = orderedNames.filter((name) => state.selectedModifiers.has(name));
-  const extraSelected = [...state.selectedModifiers].filter((name) => !selected.includes(name));
+function selectedBorderNames() {
+  const knownBorderNames = (state.data.meta?.variants || []).map((variant) => variant.name);
+  const orderedNames = [...new Set([...BORDER_NAME_ORDER, ...knownBorderNames])];
+  const selected = orderedNames.filter((name) => state.selectedBorders.has(name));
+  const extraSelected = [...state.selectedBorders].filter((name) => !selected.includes(name));
   return [...selected, ...extraSelected];
 }
 
-function selectedVariantMultiplier() {
-  const variants = state.data.meta?.variants || [];
-  return variants.reduce((mult, variant) => {
-    if (!state.selectedModifiers.has(variant.name)) return mult;
-    return mult * Number(variant.chance || 1);
+function selectedBorderMultiplier() {
+  const borders = state.data.meta?.variants || [];
+  return borders.reduce((mult, border) => {
+    if (!state.selectedBorders.has(border.name)) return mult;
+    return mult * Number(border.chance || 1);
   }, 1);
 }
 
-function modifierColorList() {
-  const variants = state.data.meta?.variants || [];
-  const selectedNames = selectedModifierNames();
-  const colors = selectedNames
-    .map((name) => variants.find((variant) => variant.name === name)?.color || "#d8b24e");
+function borderColorList() {
+  const borders = state.data.meta?.variants || [];
+  const selectedNames = selectedBorderNames();
+  const colors = selectedNames.map((name) => borders.find((border) => border.name === name)?.color || "#d8b24e");
   if (!colors.length) return "";
   if (colors.length === 1) return `${colors[0]}, ${colors[0]}, ${colors[0]}`;
   return `${colors.join(", ")}, ${colors[0]}`;
 }
 
-function adjustedOdds(card, includeModifiers = true) {
+function adjustedOdds(card, includeBorders = true) {
   if (!card || !Number(card.odds)) return 0;
-  return Number(card.odds) * (includeModifiers ? selectedVariantMultiplier() : 1);
+  return Number(card.odds) * (includeBorders ? selectedBorderMultiplier() : 1);
 }
 
-function cardStats(card, includeModifiers = true) {
-  const odds = adjustedOdds(card, includeModifiers);
+function cardStats(card, includeBorders = true) {
+  const odds = adjustedOdds(card, includeBorders);
   if (!odds) return { hp: 0, atk: 0, rawHP: 0, rawATK: 0, odds: 0 };
 
   const rawHP = Math.floor(Math.pow(2, Math.log10(odds)) * 20);
@@ -213,8 +223,8 @@ function cardStats(card, includeModifiers = true) {
   };
 }
 
-function setModifierBorderVars(element) {
-  const colors = modifierColorList();
+function setBorderVars(element) {
+  const colors = borderColorList();
   element.classList.toggle("has-modifiers", Boolean(colors));
   if (colors) {
     element.style.setProperty("--modifier-colors", colors);
@@ -241,14 +251,14 @@ function renderWeatherFilters() {
 function cardTileHTML(item) {
   const isSelected = item.id === state.selectedId;
   const weather = item.weather ? `<span class="card-tag">${escapeHTML(item.weather)}</span>` : "";
-  const modifierClass = isSelected && state.selectedModifiers.size ? "has-modifiers" : "";
-  const modifierStyle = isSelected && state.selectedModifiers.size ? `--modifier-colors:${escapeHTML(modifierColorList())};` : "";
+  const borderClass = isSelected && state.selectedBorders.size ? "has-modifiers" : "";
+  const borderStyle = isSelected && state.selectedBorders.size ? `--modifier-colors:${escapeHTML(borderColorList())};` : "";
   const stats = cardStats(item, false);
 
   return `
-    <button class="card-tile ${isSelected ? "is-selected" : ""} ${modifierClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${NEUTRAL_CARD_COLOR}; --card-accent: ${escapeHTML(cardAccent(item))}; ${modifierStyle}">
-      <span class="card-art generated-art" aria-hidden="true">
-        ${generatedArtHTML(item)}
+    <button class="card-tile ${isSelected ? "is-selected" : ""} ${borderClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${NEUTRAL_CARD_COLOR}; --card-accent: ${escapeHTML(cardAccent(item))}; ${borderStyle}">
+      <span class="card-art card-image-frame" aria-hidden="true">
+        ${cardImageHTML(item)}
       </span>
       <span class="tile-topline">
         ${weather}
@@ -264,7 +274,7 @@ function cardTileHTML(item) {
 function renderIndex() {
   const items = getVisibleCards();
   activeSectionTitle.textContent = "Index";
-  activeSectionLabel.textContent = "Cards";
+  if (activeSectionLabel) activeSectionLabel.textContent = "Cards";
   resultCount.textContent = `${items.length} result${items.length === 1 ? "" : "s"}`;
   weatherFilters.style.display = "flex";
 
@@ -277,33 +287,32 @@ function renderIndex() {
 }
 
 function renderCalculatorSoon() {
-  activeSectionTitle.textContent = "Chance Calculator";
-  activeSectionLabel.textContent = "Coming later";
-  resultCount.textContent = "not built yet";
+  activeSectionTitle.textContent = "Chance Calc";
+  if (activeSectionLabel) activeSectionLabel.textContent = "";
+  resultCount.textContent = "";
   weatherFilters.style.display = "none";
 
   cardGrid.innerHTML = `
     <article class="info-panel span-all calc-soon">
-      <p class="eyebrow">Coming later</p>
-      <h3>Chance calculator is next</h3>
-      <p>After the card index is cleaned up, this will calculate the chance to roll a specific card and combine it with independent Shiny, Diamond, and Radiant rolls.</p>
+      <h3>Chance calculator</h3>
+      <p>Not added yet.</p>
     </article>
   `;
 
   previewCard.classList.remove("has-modifiers");
-  previewArt.className = "preview-art generated-art";
-  previewArt.innerHTML = `<span class="generated-vignette"></span><span class="generated-rune">%</span>`;
-  previewName.textContent = "Chance Calculator";
-  previewMeta.textContent = "Reserved for the next feature after the card index.";
-  previewBaseHP.textContent = "Later";
-  previewBaseATK.textContent = "Later";
-  previewCurrentHP.textContent = "Later";
-  previewCurrentATK.textContent = "Later";
-  previewBaseOdds.textContent = "Later";
-  previewCurrentOdds.textContent = "Later";
-  previewAbility.textContent = "Card odds + modifiers";
-  previewSource.textContent = "Not built yet";
-  renderModifierControls();
+  previewArt.className = "preview-art card-image-frame";
+  previewArt.innerHTML = `<span class="image-empty" aria-hidden="true"></span>`;
+  previewName.textContent = "Chance Calc";
+  previewMeta.textContent = "Not added yet.";
+  previewBaseHP.textContent = "—";
+  previewBaseATK.textContent = "—";
+  previewCurrentHP.textContent = "—";
+  previewCurrentATK.textContent = "—";
+  previewBaseOdds.textContent = "—";
+  previewCurrentOdds.textContent = "—";
+  previewAbility.textContent = "—";
+  previewSource.textContent = "—";
+  renderBorderControls();
 }
 
 function renderCurrentSection() {
@@ -321,20 +330,20 @@ function renderCurrentSection() {
   }
 }
 
-function renderModifierControls() {
-  const variants = state.data.meta?.variants || [];
+function renderBorderControls() {
+  const borders = state.data.meta?.variants || [];
 
-  if (!variants.length) {
-    modifierControls.innerHTML = `<span class="muted-small">No modifier data found.</span>`;
+  if (!borders.length) {
+    modifierControls.innerHTML = `<span class="muted-small">No border data found.</span>`;
     return;
   }
 
-  modifierControls.innerHTML = variants.map((variant) => {
-    const active = state.selectedModifiers.has(variant.name);
+  modifierControls.innerHTML = borders.map((border) => {
+    const active = state.selectedBorders.has(border.name);
     return `
-      <button class="modifier-button ${active ? "is-active" : ""}" type="button" data-modifier="${escapeHTML(variant.name)}" style="--chip-color:${escapeHTML(variant.color || "#d8b24e")}">
-        <span>${escapeHTML(variant.name)}</span>
-        <small>${escapeHTML(variant.chanceLabel || "")}</small>
+      <button class="modifier-button ${active ? "is-active" : ""}" type="button" data-modifier="${escapeHTML(border.name)}" style="--chip-color:${escapeHTML(border.color || "#d8b24e")}">
+        <span>${escapeHTML(border.name)}</span>
+        <small>${escapeHTML(border.chanceLabel || "")}</small>
       </button>
     `;
   }).join("");
@@ -346,20 +355,20 @@ function updatePreview() {
 
   previewCard.style.setProperty("--preview-color", NEUTRAL_CARD_COLOR);
   previewCard.style.setProperty("--card-accent", cardAccent(item));
-  previewArt.className = "preview-art generated-art";
-  previewArt.innerHTML = generatedArtHTML(item);
+  previewArt.className = "preview-art card-image-frame";
+  previewArt.innerHTML = cardImageHTML(item);
 
-  setModifierBorderVars(previewCard);
-  setModifierBorderVars(previewArt);
+  setBorderVars(previewCard);
+  setBorderVars(previewArt);
 
-  const selectedNames = selectedModifierNames();
+  const selectedNames = selectedBorderNames();
   const displayName = selectedNames.length ? `${selectedNames.join(" ")} ${item.name}` : item.name;
   const baseStats = cardStats(item, false);
   const currentStats = cardStats(item, true);
-  const weatherText = getWeatherMultiplier(item) !== 1 ? ` • ${getWeatherMultiplier(item)}x weather stats` : "";
+  const weatherText = getWeatherMultiplier(item) !== 1 ? ` • ${getWeatherMultiplier(item)}x stats` : "";
 
   previewName.textContent = displayName;
-  previewMeta.textContent = item.abilityDescription || "No ability description found.";
+  previewMeta.textContent = item.abilityDescription || "—";
   previewBaseHP.textContent = formatNumber(baseStats.hp);
   previewBaseATK.textContent = formatNumber(baseStats.atk);
   previewCurrentHP.textContent = formatNumber(currentStats.hp);
@@ -367,8 +376,8 @@ function updatePreview() {
   previewBaseOdds.textContent = item.oddsLabel || formatOdds(item.odds);
   previewCurrentOdds.textContent = formatOdds(currentStats.odds);
   previewAbility.textContent = titleCaseAbility(item.ability || item.abilityType);
-  previewSource.textContent = (item.weather ? `${item.weather} weather` : item.source || "Base roll") + weatherText;
-  renderModifierControls();
+  previewSource.textContent = (item.weather ? `${item.weather}` : item.source || "Base") + weatherText;
+  renderBorderControls();
 }
 
 function selectItem(id) {
@@ -422,11 +431,11 @@ function wireEvents() {
     const button = event.target.closest("[data-modifier]");
     if (!button) return;
 
-    const modifier = button.dataset.modifier;
-    if (state.selectedModifiers.has(modifier)) {
-      state.selectedModifiers.delete(modifier);
+    const border = button.dataset.modifier;
+    if (state.selectedBorders.has(border)) {
+      state.selectedBorders.delete(border);
     } else {
-      state.selectedModifiers.add(modifier);
+      state.selectedBorders.add(border);
     }
 
     updatePreview();
@@ -439,7 +448,7 @@ function wireEvents() {
 
     try {
       await navigator.clipboard.writeText(previewName.textContent || item.name);
-      copyCardButton.textContent = "Copied!";
+      copyCardButton.textContent = "Copied";
       setTimeout(() => {
         copyCardButton.textContent = "Copy card name";
       }, 1200);
@@ -479,7 +488,7 @@ async function init() {
   renderStats();
   renderWeatherFilters();
   wireEvents();
-  renderModifierControls();
+  renderBorderControls();
   renderCurrentSection();
 }
 
