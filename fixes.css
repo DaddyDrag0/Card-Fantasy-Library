@@ -1,0 +1,30 @@
+/* Small overrides after the Roblox thumbnail/image loading update. */
+.card-art.has-image:not(.is-loaded) .fallback-symbol,
+.preview-art.has-image:not(.is-loaded) .fallback-symbol {
+  display: block;
+}
+
+.card-art.has-image.is-loaded .fallback-symbol,
+.preview-art.has-image.is-loaded .fallback-symbol {
+  display: none;
+}
+
+.image-loader {
+  display: none;
+}
+
+.card-tile {
+  --rarity-color: #8c8170;
+}
+
+.card-tile:not(.has-modifiers),
+.card-tile:not(.has-modifiers).is-selected,
+.card-tile:not(.has-modifiers):hover,
+.card-tile:not(.has-modifiers):focus-visible {
+  border-color: #8c8170;
+  box-shadow: none;
+}
+
+.preview-card {
+  --preview-color: #8c8170;
+}
