@@ -9,6 +9,7 @@ const fallbackData = {
 };
 
 const NEUTRAL_CARD_COLOR = "#8c8170";
+const MODIFIER_NAME_ORDER = ["Shiny", "Diamond", "Radiant"];
 
 const state = {
   data: fallbackData,
@@ -163,6 +164,14 @@ function getSelectedCard() {
   return state.cards.find((card) => card.id === state.selectedId) || getVisibleCards()[0] || state.cards[0] || null;
 }
 
+function selectedModifierNames() {
+  const knownModifierNames = (state.data.meta?.variants || []).map((variant) => variant.name);
+  const orderedNames = [...new Set([...MODIFIER_NAME_ORDER, ...knownModifierNames])];
+  const selected = orderedNames.filter((name) => state.selectedModifiers.has(name));
+  const extraSelected = [...state.selectedModifiers].filter((name) => !selected.includes(name));
+  return [...selected, ...extraSelected];
+}
+
 function selectedVariantMultiplier() {
   const variants = state.data.meta?.variants || [];
   return variants.reduce((mult, variant) => {
@@ -173,8 +182,9 @@ function selectedVariantMultiplier() {
 
 function modifierColorList() {
   const variants = state.data.meta?.variants || [];
-  const selected = variants.filter((variant) => state.selectedModifiers.has(variant.name));
-  const colors = selected.map((variant) => variant.color || "#d8b24e");
+  const selectedNames = selectedModifierNames();
+  const colors = selectedNames
+    .map((name) => variants.find((variant) => variant.name === name)?.color || "#d8b24e");
   if (!colors.length) return "";
   if (colors.length === 1) return `${colors[0]}, ${colors[0]}, ${colors[0]}`;
   return `${colors.join(", ")}, ${colors[0]}`;
@@ -342,13 +352,13 @@ function updatePreview() {
   setModifierBorderVars(previewCard);
   setModifierBorderVars(previewArt);
 
-  const selectedNames = [...state.selectedModifiers];
-  const modifierText = selectedNames.length ? ` with ${selectedNames.join(" + ")}` : "";
+  const selectedNames = selectedModifierNames();
+  const displayName = selectedNames.length ? `${selectedNames.join(" ")} ${item.name}` : item.name;
   const baseStats = cardStats(item, false);
   const currentStats = cardStats(item, true);
   const weatherText = getWeatherMultiplier(item) !== 1 ? ` • ${getWeatherMultiplier(item)}x weather stats` : "";
 
-  previewName.textContent = item.name + modifierText;
+  previewName.textContent = displayName;
   previewMeta.textContent = item.abilityDescription || "No ability description found.";
   previewBaseHP.textContent = formatNumber(baseStats.hp);
   previewBaseATK.textContent = formatNumber(baseStats.atk);
