@@ -65,6 +65,11 @@ const CardFantasyStatSync = (() => {
     const shownHP = document.querySelector("#previewBaseHP");
     const shownATK = document.querySelector("#previewBaseATK");
 
+    document.querySelectorAll(".sync-hidden-row").forEach((row) => {
+      row.hidden = true;
+      row.style.display = "none";
+    });
+
     if (hpLabel && hpLabel.textContent !== "HP") hpLabel.textContent = "HP";
     if (atkLabel && atkLabel.textContent !== "ATK") atkLabel.textContent = "ATK";
     if (shownHP && shownHP.textContent !== currentHP) shownHP.textContent = currentHP;
@@ -103,7 +108,7 @@ const CardFantasyStatSync = (() => {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["class", "style"]
+      attributeFilter: ["class", "style", "hidden"]
     });
 
     document.addEventListener("click", (event) => {
