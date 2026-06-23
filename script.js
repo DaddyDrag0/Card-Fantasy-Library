@@ -11,24 +11,11 @@ const fallbackData = {
 const state = {
   data: fallbackData,
   cards: [],
-  activeSection: "cards",
-  activeTier: "all",
+  activeSection: "index",
+  activeWeather: "all",
   query: "",
-  selectedId: null
-};
-
-const sectionTitles = {
-  cards: "All Cards",
-  weather: "Weather Cards",
-  variants: "Variant System",
-  calculator: "Chance Calculator"
-};
-
-const sectionLabels = {
-  cards: "Cards",
-  weather: "Weather",
-  variants: "Shiny • Diamond • Radiant",
-  calculator: "Coming later"
+  selectedId: null,
+  selectedModifiers: new Set()
 };
 
 const cardGrid = document.querySelector("#cardGrid");
@@ -40,13 +27,14 @@ const previewCard = document.querySelector("#previewCard");
 const previewArt = document.querySelector("#previewArt");
 const previewName = document.querySelector("#previewName");
 const previewMeta = document.querySelector("#previewMeta");
-const previewOdds = document.querySelector("#previewOdds");
+const previewBaseOdds = document.querySelector("#previewBaseOdds");
+const previewCurrentOdds = document.querySelector("#previewCurrentOdds");
 const previewAbility = document.querySelector("#previewAbility");
 const previewSource = document.querySelector("#previewSource");
 const previewImageId = document.querySelector("#previewImageId");
-const previewVariants = document.querySelector("#previewVariants");
+const modifierControls = document.querySelector("#modifierControls");
 const copyCardButton = document.querySelector("#copyCardButton");
-const tierFilters = document.querySelector("#tierFilters");
+const weatherFilters = document.querySelector("#weatherFilters");
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -61,44 +49,129 @@ function normalize(value) {
   return String(value || "").toLowerCase().trim();
 }
 
+function titleCaseAbility(value) {
+  const acronyms = new Map([
+    ["hp", "HP"],
+    ["atk", "ATK"],
+    ["aoe", "AOE"],
+    ["dr", "DR"]
+  ]);
+
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (acronyms.has(lower)) return acronyms.get(lower);
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ") || "—";
+}
+
 function formatNumber(value) {
   if (value === null || value === undefined || Number(value) <= 0) return "Not rollable";
   return Number(value).toLocaleString();
 }
 
-function robloxImageUrl(imageId, size = 420) {
-  if (!imageId) return "";
-  return `https://www.roblox.com/asset-thumbnail/image?assetId=${encodeURIComponent(imageId)}&width=${size}&height=${size}&format=png`;
+function formatOdds(value) {
+  if (value === null || value === undefined || Number(value) <= 0) return "Not rollable";
+  return `1/${formatNumber(value)}`;
+}
+
+function robloxImageCandidates(imageId, size = 420) {
+  if (!imageId) return [];
+  const id = encodeURIComponent(imageId);
+  return [
+    `https://assetdelivery.roblox.com/v1/asset?id=${id}`,
+    `https://www.roblox.com/asset-thumbnail/image?assetId=${id}&width=${size}&height=${size}&format=png`
+  ];
+}
+
+window.tryNextImage = function tryNextImage(img) {
+  const candidates = (img.dataset.candidates || "").split("|").filter(Boolean);
+  const nextIndex = Number(img.dataset.fallbackIndex || 0) + 1;
+
+  if (candidates[nextIndex]) {
+    img.dataset.fallbackIndex = String(nextIndex);
+    img.src = candidates[nextIndex];
+    return;
+  }
+
+  const parent = img.parentElement;
+  if (parent) parent.classList.remove("has-image");
+  img.remove();
+};
+
+function imageHTML(imageId, size = 420) {
+  const candidates = robloxImageCandidates(imageId, size);
+  if (!candidates.length) return "";
+  return `<img src="${escapeHTML(candidates[0])}" data-candidates="${escapeHTML(candidates.join("|"))}" data-fallback-index="0" alt="" loading="lazy" onerror="tryNextImage(this)">`;
 }
 
 function getSearchBlob(item) {
   return normalize([
     item.name,
-    item.tier,
     item.oddsLabel,
     item.ability,
+    titleCaseAbility(item.ability),
     item.abilityType,
+    titleCaseAbility(item.abilityType),
     item.abilityDescription,
     item.source,
-    item.weather,
+    item.weather || "Base",
     item.imageId,
     ...(item.variants || [])
   ].join(" "));
+}
+
+function getWeatherName(item) {
+  return item.weather || "Base";
 }
 
 function getVisibleCards() {
   const query = normalize(state.query);
 
   return state.cards.filter((item) => {
-    const matchesSection = state.activeSection === "cards" || (state.activeSection === "weather" && item.weather);
-    const matchesTier = state.activeTier === "all" || item.tier === state.activeTier;
+    const matchesWeather = state.activeWeather === "all" || getWeatherName(item) === state.activeWeather;
     const matchesQuery = !query || getSearchBlob(item).includes(query);
-    return matchesSection && matchesTier && matchesQuery;
+    return matchesWeather && matchesQuery;
   });
 }
 
-function setTierFiltersVisible(isVisible) {
-  tierFilters.style.display = isVisible ? "flex" : "none";
+function getSelectedCard() {
+  return state.cards.find((card) => card.id === state.selectedId) || getVisibleCards()[0] || state.cards[0] || null;
+}
+
+function modifierColorList() {
+  const variants = state.data.meta?.variants || [];
+  const selected = variants.filter((variant) => state.selectedModifiers.has(variant.name));
+  const colors = selected.map((variant) => variant.color || "#d8b24e");
+  if (!colors.length) return "";
+  if (colors.length === 1) return `${colors[0]}, ${colors[0]}, ${colors[0]}`;
+  return `${colors.join(", ")}, ${colors[0]}`;
+}
+
+function currentOdds(card) {
+  if (!card || !Number(card.odds)) return 0;
+
+  const variants = state.data.meta?.variants || [];
+  return variants.reduce((odds, variant) => {
+    if (!state.selectedModifiers.has(variant.name)) return odds;
+    return odds * Number(variant.chance || 1);
+  }, Number(card.odds));
+}
+
+function setModifierBorderVars(element) {
+  const colors = modifierColorList();
+  element.classList.toggle("has-modifiers", Boolean(colors));
+  if (colors) {
+    element.style.setProperty("--modifier-colors", colors);
+  } else {
+    element.style.removeProperty("--modifier-colors");
+  }
 }
 
 function renderStats() {
@@ -108,34 +181,44 @@ function renderStats() {
   document.querySelector("#totalVariants").textContent = state.data.meta?.variants?.length ?? 0;
 }
 
+function renderWeatherFilters() {
+  const weatherNames = ["all", "Base", ...new Set(state.cards.map((card) => card.weather).filter(Boolean))];
+  weatherFilters.innerHTML = weatherNames.map((name) => {
+    const label = name === "all" ? "All" : name;
+    return `<button class="filter-pill ${state.activeWeather === name ? "is-active" : ""}" type="button" data-weather="${escapeHTML(name)}">${escapeHTML(label)}</button>`;
+  }).join("");
+}
+
 function cardTileHTML(item) {
-  const image = item.imageId ? `<img src="${robloxImageUrl(item.imageId, 420)}" alt="" loading="lazy" onerror="this.parentElement.classList.remove('has-image'); this.remove();">` : "";
+  const isSelected = item.id === state.selectedId;
   const artClass = item.imageId ? "card-art has-image" : "card-art";
+  const image = imageHTML(item.imageId, 420);
   const weather = item.weather ? `<span class="card-tag">${escapeHTML(item.weather)}</span>` : "";
+  const modifierClass = isSelected && state.selectedModifiers.size ? "has-modifiers" : "";
+  const modifierStyle = isSelected && state.selectedModifiers.size ? `--modifier-colors:${escapeHTML(modifierColorList())};` : "";
 
   return `
-    <button class="card-tile ${item.id === state.selectedId ? "is-selected" : ""}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${escapeHTML(item.color || "#d8b24e")}">
+    <button class="card-tile ${isSelected ? "is-selected" : ""} ${modifierClass}" type="button" data-id="${escapeHTML(item.id)}" style="--rarity-color: ${escapeHTML(item.color || "#d8b24e")}; ${modifierStyle}">
       <span class="${artClass}" aria-hidden="true">
         ${image}
         <span class="fallback-symbol">✦</span>
       </span>
       <span class="tile-topline">
-        <span class="card-meta">${escapeHTML(item.tier || "Unknown")}</span>
         ${weather}
       </span>
       <h3>${escapeHTML(item.name)}</h3>
-      <span class="card-stat">Odds: ${escapeHTML(item.oddsLabel || `1/${formatNumber(item.odds)}`)}</span>
-      <span class="card-stat">${escapeHTML(item.abilityDescription || item.ability || "No ability listed")}</span>
+      <span class="card-stat">Odds: ${escapeHTML(item.oddsLabel || formatOdds(item.odds))}</span>
+      <span class="card-stat">Source: ${escapeHTML(getWeatherName(item))}</span>
     </button>
   `;
 }
 
-function renderCardGrid() {
+function renderIndex() {
   const items = getVisibleCards();
-  activeSectionTitle.textContent = sectionTitles[state.activeSection] || "Cards";
-  activeSectionLabel.textContent = sectionLabels[state.activeSection] || "Cards";
+  activeSectionTitle.textContent = "Index";
+  activeSectionLabel.textContent = "Cards";
   resultCount.textContent = `${items.length} result${items.length === 1 ? "" : "s"}`;
-  setTierFiltersVisible(true);
+  weatherFilters.style.display = "flex";
 
   if (!items.length) {
     cardGrid.innerHTML = `<div class="empty-state">No cards match that search/filter.</div>`;
@@ -145,145 +228,106 @@ function renderCardGrid() {
   cardGrid.innerHTML = items.map(cardTileHTML).join("");
 }
 
-function renderVariants() {
-  const variants = state.data.meta?.variants || [];
-  const combos = state.data.meta?.variantCombos || [];
-  activeSectionTitle.textContent = "Variant System";
-  activeSectionLabel.textContent = "Independent rolls";
-  resultCount.textContent = `${variants.length} variants`;
-  setTierFiltersVisible(false);
-
-  cardGrid.innerHTML = `
-    <article class="info-panel span-all">
-      <p class="eyebrow">How variants work</p>
-      <h3>Shiny, Diamond, and Radiant roll separately</h3>
-      <p>These are not normal one-choice borders. A single card can roll none, one, two, or all three variants at the same time.</p>
-    </article>
-    ${variants.map((variant) => `
-      <article class="variant-card" style="--rarity-color:${escapeHTML(variant.color || "#d8b24e")}">
-        <div class="variant-gem">◇</div>
-        <h3>${escapeHTML(variant.name)}</h3>
-        <p>${escapeHTML(variant.chanceLabel || "Unknown chance")}</p>
-        <span>${escapeHTML(variant.luckStat || "luck stat unknown")}</span>
-        <span>Stat bonus: ${escapeHTML(variant.statBonus ?? "?")}</span>
-      </article>
-    `).join("")}
-    <article class="info-panel span-all">
-      <p class="eyebrow">Possible combinations</p>
-      <div class="combo-list">
-        ${combos.map((combo) => `<span>${escapeHTML(combo.name)}</span>`).join("")}
-      </div>
-    </article>
-  `;
-
-  selectVariantPreview();
-}
-
 function renderCalculatorSoon() {
   activeSectionTitle.textContent = "Chance Calculator";
-  activeSectionLabel.textContent = "Coming after index";
+  activeSectionLabel.textContent = "Coming later";
   resultCount.textContent = "not built yet";
-  setTierFiltersVisible(false);
+  weatherFilters.style.display = "none";
 
   cardGrid.innerHTML = `
     <article class="info-panel span-all calc-soon">
       <p class="eyebrow">Coming later</p>
-      <h3>Chance calculator is the next feature</h3>
-      <p>Once the card index is finished, this can calculate the chance to get a card and include independent Shiny, Diamond, and Radiant variant rolls.</p>
-      <p>For now, this page only reserves the spot in the left navigation.</p>
+      <h3>Chance calculator is next</h3>
+      <p>After the card index is cleaned up, this will calculate the chance to roll a specific card and combine it with independent Shiny, Diamond, and Radiant rolls.</p>
     </article>
   `;
 
-  previewName.textContent = "Chance Calculator";
-  previewMeta.textContent = "Reserved for the next feature after the card index is cleaned up.";
-  previewArt.innerHTML = `<span>%</span>`;
+  previewCard.classList.remove("has-modifiers");
   previewArt.className = "preview-art";
-  previewOdds.textContent = "Later";
-  previewAbility.textContent = "Card odds + variants";
+  previewArt.innerHTML = `<span class="fallback-symbol">%</span>`;
+  previewName.textContent = "Chance Calculator";
+  previewMeta.textContent = "Reserved for the next feature after the card index.";
+  previewBaseOdds.textContent = "Later";
+  previewCurrentOdds.textContent = "Later";
+  previewAbility.textContent = "Card odds + modifiers";
   previewSource.textContent = "Not built yet";
   previewImageId.textContent = "—";
-  previewVariants.innerHTML = "";
+  renderModifierControls();
 }
 
 function renderCurrentSection() {
-  if (state.activeSection === "variants") {
-    renderVariants();
-    return;
-  }
-
   if (state.activeSection === "calculator") {
     renderCalculatorSoon();
     return;
   }
 
-  renderCardGrid();
+  renderIndex();
   const visible = getVisibleCards();
   if (!visible.some((card) => card.id === state.selectedId)) {
     selectItem(visible[0]?.id);
+  } else {
+    updatePreview();
   }
+}
+
+function renderModifierControls() {
+  const variants = state.data.meta?.variants || [];
+
+  if (!variants.length) {
+    modifierControls.innerHTML = `<span class="muted-small">No modifier data found.</span>`;
+    return;
+  }
+
+  modifierControls.innerHTML = variants.map((variant) => {
+    const active = state.selectedModifiers.has(variant.name);
+    return `
+      <button class="modifier-button ${active ? "is-active" : ""}" type="button" data-modifier="${escapeHTML(variant.name)}" style="--chip-color:${escapeHTML(variant.color || "#d8b24e")}">
+        <span>${escapeHTML(variant.name)}</span>
+        <small>${escapeHTML(variant.chanceLabel || "")}</small>
+      </button>
+    `;
+  }).join("");
+}
+
+function updatePreview() {
+  const item = getSelectedCard();
+  if (!item) return;
+
+  const image = imageHTML(item.imageId, 720);
+  previewCard.style.setProperty("--preview-color", item.color || "#d8b24e");
+  previewArt.className = item.imageId ? "preview-art has-image" : "preview-art";
+  previewArt.innerHTML = `${image}<span class="fallback-symbol">✦</span>`;
+
+  setModifierBorderVars(previewCard);
+  setModifierBorderVars(previewArt);
+
+  const selectedNames = [...state.selectedModifiers];
+  const modifierText = selectedNames.length ? ` with ${selectedNames.join(" + ")}` : "";
+
+  previewName.textContent = item.name + modifierText;
+  previewMeta.textContent = item.abilityDescription || "No ability description found.";
+  previewBaseOdds.textContent = item.oddsLabel || formatOdds(item.odds);
+  previewCurrentOdds.textContent = formatOdds(currentOdds(item));
+  previewAbility.textContent = titleCaseAbility(item.ability || item.abilityType);
+  previewSource.textContent = item.weather ? `${item.weather} weather` : item.source || "Base roll";
+  previewImageId.textContent = item.imageId || "—";
+  renderModifierControls();
 }
 
 function selectItem(id) {
   const item = state.cards.find((card) => card.id === id) || getVisibleCards()[0] || state.cards[0];
   if (!item) return;
-
   state.selectedId = item.id;
-  previewCard.style.setProperty("--preview-color", item.color || "#d8b24e");
-
-  const image = item.imageId ? `<img src="${robloxImageUrl(item.imageId, 720)}" alt="" onerror="this.parentElement.classList.remove('has-image'); this.remove();">` : "";
-  previewArt.className = item.imageId ? "preview-art has-image" : "preview-art";
-  previewArt.innerHTML = `${image}<span class="fallback-symbol">✦</span>`;
-
-  previewName.textContent = item.name;
-  previewMeta.textContent = item.abilityDescription || "No ability description found.";
-  previewOdds.textContent = item.oddsLabel || `1/${formatNumber(item.odds)}`;
-  previewAbility.textContent = item.ability || "—";
-  previewSource.textContent = item.weather ? `${item.weather} weather` : item.source || "Base roll";
-  previewImageId.textContent = item.imageId || "—";
-  previewVariants.innerHTML = renderVariantChips(item.variants || []);
-
-  if (state.activeSection !== "variants" && state.activeSection !== "calculator") {
-    renderCardGrid();
-  }
-}
-
-function renderVariantChips(variantNames) {
-  const variants = state.data.meta?.variants || [];
-  return variants
-    .filter((variant) => variantNames.includes(variant.name))
-    .map((variant) => `
-      <span class="variant-chip" style="--chip-color:${escapeHTML(variant.color || "#d8b24e")}">
-        ${escapeHTML(variant.name)} <small>${escapeHTML(variant.chanceLabel || "")}</small>
-      </span>
-    `)
-    .join("");
-}
-
-function selectVariantPreview() {
-  const variants = state.data.meta?.variants || [];
-  previewCard.style.setProperty("--preview-color", "#d8b24e");
-  previewArt.className = "preview-art";
-  previewArt.innerHTML = `<span>◇</span>`;
-  previewName.textContent = "Variant Rolls";
-  previewMeta.textContent = "Each variant rolls independently, so combined variants are possible.";
-  previewOdds.textContent = variants.map((v) => `${v.name}: ${v.chanceLabel}`).join(" • ") || "—";
-  previewAbility.textContent = "Independent rolls";
-  previewSource.textContent = "Card variant system";
-  previewImageId.textContent = "Uses card imageId";
-  previewVariants.innerHTML = renderVariantChips(variants.map((v) => v.name));
+  updatePreview();
+  if (state.activeSection === "index") renderIndex();
 }
 
 function setActiveSection(section) {
   state.activeSection = section;
-  state.activeTier = "all";
   state.selectedId = null;
 
   document.querySelectorAll(".rail-link").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.section === section);
-  });
-
-  document.querySelectorAll(".filter-pill").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.tier === "all");
   });
 
   renderCurrentSection();
@@ -301,10 +345,10 @@ function wireEvents() {
     setActiveSection(button.dataset.section);
   });
 
-  document.querySelector("#tierFilters").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-tier]");
+  weatherFilters.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-weather]");
     if (!button) return;
-    state.activeTier = button.dataset.tier;
+    state.activeWeather = button.dataset.weather;
     document.querySelectorAll(".filter-pill").forEach((pill) => {
       pill.classList.toggle("is-active", pill === button);
     });
@@ -317,12 +361,27 @@ function wireEvents() {
     selectItem(button.dataset.id);
   });
 
+  modifierControls.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-modifier]");
+    if (!button) return;
+
+    const modifier = button.dataset.modifier;
+    if (state.selectedModifiers.has(modifier)) {
+      state.selectedModifiers.delete(modifier);
+    } else {
+      state.selectedModifiers.add(modifier);
+    }
+
+    updatePreview();
+    if (state.activeSection === "index") renderIndex();
+  });
+
   copyCardButton.addEventListener("click", async () => {
-    const item = state.cards.find((card) => card.id === state.selectedId);
+    const item = getSelectedCard();
     if (!item) return;
 
     try {
-      await navigator.clipboard.writeText(item.name);
+      await navigator.clipboard.writeText(previewName.textContent || item.name);
       copyCardButton.textContent = "Copied!";
       setTimeout(() => {
         copyCardButton.textContent = "Copy card name";
@@ -360,8 +419,10 @@ async function loadData() {
 
 async function init() {
   await loadData();
-  wireEvents();
   renderStats();
+  renderWeatherFilters();
+  wireEvents();
+  renderModifierControls();
   renderCurrentSection();
 }
 
