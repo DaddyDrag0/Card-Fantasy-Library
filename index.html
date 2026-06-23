@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="fixes.css" />
-  <link rel="stylesheet" href="revamp.css" />
+  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="fixes.css?v=9" />
+  <link rel="stylesheet" href="revamp.css?v=9" />
 </head>
 <body>
   <div class="site-shell">
@@ -49,28 +49,20 @@
       </section>
 
       <section class="site-controls" aria-label="Display options">
-        <div class="layout-toolbar" id="pageLayoutControls" aria-label="Page layout options">
-          <span>Layout</span>
-          <button class="layout-option is-active" type="button" data-layout="sidebar">Sidebar</button>
-          <button class="layout-option" type="button" data-layout="topbar">Top Bar</button>
-          <button class="layout-option" type="button" data-layout="wide">Wide</button>
-          <button class="layout-option" type="button" data-layout="focus">Preview Left</button>
-        </div>
-
-        <div class="style-toolbar" id="themeControls" aria-label="Theme options">
-          <span>Style</span>
-          <button class="style-option is-active" type="button" data-theme="abyss">Abyss</button>
-          <button class="style-option" type="button" data-theme="blood">Blood</button>
-          <button class="style-option" type="button" data-theme="gold">Gold</button>
-          <button class="style-option" type="button" data-theme="frost">Frost</button>
-          <button class="style-option" type="button" data-theme="forest">Forest</button>
-          <button class="style-option" type="button" data-theme="void">Void</button>
-          <button class="style-option" type="button" data-theme="ember">Ember</button>
-          <button class="style-option" type="button" data-theme="royal">Royal</button>
-          <button class="style-option" type="button" data-theme="ash">Ash</button>
-          <button class="style-option" type="button" data-theme="ocean">Ocean</button>
-          <button class="style-option" type="button" data-theme="rose">Rose</button>
-          <button class="style-option" type="button" data-theme="bone">Bone</button>
+        <div class="preset-toolbar" id="presetControls" aria-label="Full layout and style presets">
+          <span>Preset</span>
+          <button class="preset-option is-active" type="button" data-preset="tome">Tome</button>
+          <button class="preset-option" type="button" data-preset="topbar">Topbar</button>
+          <button class="preset-option" type="button" data-preset="library">Library</button>
+          <button class="preset-option" type="button" data-preset="preview">Preview</button>
+          <button class="preset-option" type="button" data-preset="blood">Blood</button>
+          <button class="preset-option" type="button" data-preset="frost">Frost</button>
+          <button class="preset-option" type="button" data-preset="forest">Forest</button>
+          <button class="preset-option" type="button" data-preset="void">Void</button>
+          <button class="preset-option" type="button" data-preset="ember">Ember</button>
+          <button class="preset-option" type="button" data-preset="royal">Royal</button>
+          <button class="preset-option" type="button" data-preset="minimal">Minimal</button>
+          <button class="preset-option" type="button" data-preset="bone">Bone</button>
         </div>
       </section>
 
@@ -82,7 +74,7 @@
               <input id="searchInput" type="search" placeholder="Search card, ability, odds, weather..." autocomplete="off" />
             </label>
 
-            <div class="format-toolbar" id="formatControls" aria-label="Index format options">
+            <div class="format-toolbar" id="formatControls" aria-label="Card list format">
               <span>Cards</span>
               <button class="format-option is-active" type="button" data-view="grid">Grid</button>
               <button class="format-option" type="button" data-view="codex">Rows</button>
@@ -95,9 +87,7 @@
           </div>
 
           <div class="section-header">
-            <div>
-              <h2 id="activeSectionTitle">Index</h2>
-            </div>
+            <div><h2 id="activeSectionTitle">Index</h2></div>
             <p id="resultCount" class="result-count">0 results</p>
           </div>
 
@@ -107,7 +97,7 @@
         <aside class="preview-area" aria-label="Selected card preview">
           <div class="preview-card" id="previewCard">
             <p class="eyebrow">Selected</p>
-            <div class="preview-art" id="previewArt" aria-hidden="true">
+            <div class="preview-art card-image-frame" id="previewArt" aria-hidden="true">
               <span class="image-empty"></span>
             </div>
             <h2 id="previewName">Select a card</h2>
@@ -136,7 +126,7 @@
     </main>
   </div>
 
-  <script src="script.js"></script>
-  <script src="format-options.js"></script>
+  <script src="script.js?v=9"></script>
+  <script src="format-options.js?v=9"></script>
 </body>
 </html>
