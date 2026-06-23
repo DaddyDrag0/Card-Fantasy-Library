@@ -53,6 +53,10 @@ function normalize(value) {
   return String(value || "").toLowerCase().trim();
 }
 
+function isRollableCard(card) {
+  return Number(card?.odds) > 0 && !String(card?.oddsLabel || "").toLowerCase().includes("not rollable");
+}
+
 function titleCaseAbility(value) {
   const acronyms = new Map([["hp", "HP"], ["atk", "ATK"], ["aoe", "AOE"], ["dr", "DR"]]);
   return String(value || "")
@@ -70,12 +74,12 @@ function titleCaseAbility(value) {
 }
 
 function formatNumber(value) {
-  if (value === null || value === undefined || Number(value) <= 0) return "Not rollable";
+  if (value === null || value === undefined || Number(value) <= 0) return "—";
   return Math.floor(Number(value)).toLocaleString();
 }
 
 function formatOdds(value) {
-  if (value === null || value === undefined || Number(value) <= 0) return "Not rollable";
+  if (value === null || value === undefined || Number(value) <= 0) return "—";
   return `1/${formatNumber(value)}`;
 }
 
@@ -212,8 +216,8 @@ function setBorderVars(element) {
 
 function renderStats() {
   const counts = state.data.meta?.counts || {};
-  document.querySelector("#totalCards").textContent = counts.cards ?? state.cards.length;
-  document.querySelector("#totalWeather").textContent = counts.weatherCards ?? state.cards.filter((card) => card.weather).length;
+  document.querySelector("#totalCards").textContent = state.cards.length || counts.cards || 0;
+  document.querySelector("#totalWeather").textContent = state.cards.filter((card) => card.weather).length;
   document.querySelector("#totalVariants").textContent = state.data.meta?.variants?.length ?? 0;
 }
 
@@ -417,8 +421,13 @@ async function loadData() {
         return Array.isArray(result.value.cards) ? result.value.cards : [];
       });
     }
+    state.cards = (Array.isArray(data.cards) ? data.cards : []).filter(isRollableCard);
+    data.cards = state.cards;
+    data.meta = data.meta || {};
+    data.meta.counts = data.meta.counts || {};
+    data.meta.counts.cards = state.cards.length;
+    data.meta.counts.weatherCards = state.cards.filter((card) => card.weather).length;
     state.data = data;
-    state.cards = Array.isArray(data.cards) ? data.cards : [];
   } catch (error) {
     console.error("Card data did not load", error);
     state.data = fallbackData;
