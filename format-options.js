@@ -1,5 +1,5 @@
 const viewClassNames = ["view-grid", "view-codex", "view-compact"];
-const layoutClassNames = [
+const staleLayoutClassNames = [
   "layout-tome",
   "layout-topdeck",
   "layout-atlas",
@@ -9,12 +9,12 @@ const layoutClassNames = [
   "layout-wall",
   "layout-right-rail",
   "layout-archive",
-  "layout-floating",
   "layout-minimal",
-  "layout-codex"
-];
-const oldLayoutClassNames = ["layout-sidebar", "layout-topbar", "layout-wide", "layout-focus"];
-const oldPresetClassNames = [
+  "layout-codex",
+  "layout-sidebar",
+  "layout-topbar",
+  "layout-wide",
+  "layout-focus",
   "preset-tome",
   "preset-topbar",
   "preset-library",
@@ -44,24 +44,9 @@ const themeClassNames = [
 ];
 
 const validViews = ["grid", "codex", "compact"];
-const validLayouts = [
-  "tome",
-  "topdeck",
-  "atlas",
-  "preview-left",
-  "clean",
-  "split",
-  "wall",
-  "right-rail",
-  "archive",
-  "floating",
-  "minimal",
-  "codex"
-];
 const validThemes = ["abyss", "blood", "gold", "frost", "forest", "void", "ember", "royal", "ash", "ocean", "rose", "bone"];
 
 const formatControls = document.querySelector("#formatControls");
-const layoutControls = document.querySelector("#layoutControls");
 const themeControls = document.querySelector("#themeControls");
 const settingsButton = document.querySelector("#settingsButton");
 const settingsPanel = document.querySelector("#settingsPanel");
@@ -82,16 +67,10 @@ function setIndexView(viewName) {
   localStorage.setItem("cardFantasyIndexView", view);
 }
 
-function setLayout(layoutName) {
-  const layout = validLayouts.includes(layoutName) ? layoutName : "tome";
-  document.body.classList.remove(...layoutClassNames, ...oldLayoutClassNames, ...oldPresetClassNames);
-  document.body.classList.add(`layout-${layout}`);
-
-  document.querySelectorAll(".layout-choice").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.layout === layout);
-  });
-
-  localStorage.setItem("cardFantasyLayout", layout);
+function setFixedLayout() {
+  document.body.classList.remove(...staleLayoutClassNames);
+  document.body.classList.add("layout-floating");
+  localStorage.setItem("cardFantasyLayout", "floating");
 }
 
 function setTheme(themeName) {
@@ -122,12 +101,6 @@ formatControls?.addEventListener("click", (event) => {
   setIndexView(button.dataset.view);
 });
 
-layoutControls?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-layout]");
-  if (!button) return;
-  setLayout(button.dataset.layout);
-});
-
 themeControls?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-theme]");
   if (!button) return;
@@ -144,6 +117,6 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeSettings();
 });
 
-setLayout(localStorage.getItem("cardFantasyLayout") || "tome");
+setFixedLayout();
 setTheme(localStorage.getItem("cardFantasyTheme") || "abyss");
 setIndexView(localStorage.getItem("cardFantasyIndexView") || "grid");
