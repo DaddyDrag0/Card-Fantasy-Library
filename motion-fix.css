@@ -1,0 +1,33 @@
+/* Removes the up/down card movement when selecting cards or borders. */
+
+.card-tile,
+.modifier-button,
+.format-option,
+.filter-pill,
+.primary-action {
+  transform: none !important;
+}
+
+.card-tile:hover,
+.card-tile:focus-visible,
+.card-tile.is-selected,
+.card-tile.has-modifiers,
+.modifier-button:hover,
+.modifier-button:focus-visible,
+.modifier-button.is-active,
+.format-option:hover,
+.format-option:focus-visible,
+.filter-pill:hover,
+.filter-pill:focus-visible,
+.primary-action:hover,
+.primary-action:focus-visible {
+  transform: none !important;
+}
+
+.card-tile {
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease !important;
+}
+
+.modifier-button {
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease, color 120ms ease !important;
+}
