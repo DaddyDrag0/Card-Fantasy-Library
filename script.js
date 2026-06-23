@@ -11,6 +11,7 @@ const BORDER_NAME_ORDER = ["Shiny", "Diamond", "Radiant"];
 const CARD_IMAGE_EXTENSIONS = ["png", "webp", "jpg", "jpeg"];
 const MOBILE_PREVIEW_QUERY = "(max-width: 820px)";
 const MAX_COMPARE_CARDS = 4;
+const BASE_COMPARE_BORDER = "__base";
 
 const state = {
   data: fallbackData,
@@ -22,7 +23,8 @@ const state = {
   selectedId: null,
   selectedBorders: new Set(),
   compareMode: false,
-  compareIds: new Set()
+  compareIds: new Set(),
+  compareBorders: new Map()
 };
 
 const cardGrid = document.querySelector("#cardGrid");
@@ -49,12 +51,8 @@ const previewAbility = document.querySelector("#previewAbility");
 const previewSource = document.querySelector("#previewSource");
 const modifierControls = document.querySelector("#modifierControls");
 const copyCardButton = document.querySelector("#copyCardButton");
-const viewDetailsButton = document.querySelector("#viewDetailsButton");
 const previewClose = document.querySelector("#previewClose");
 const weatherFilters = document.querySelector("#weatherFilters");
-const detailModal = document.querySelector("#detailModal");
-const detailClose = document.querySelector("#detailClose");
-const detailContent = document.querySelector("#detailContent");
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -82,10 +80,7 @@ function setIndexPanelMode(isIndex) {
   cardToolbar?.classList.toggle("is-hidden", !isIndex);
   if (previewArea) previewArea.hidden = !isIndex;
   if (compareTray) compareTray.hidden = !isIndex || state.compareIds.size === 0;
-  if (!isIndex) {
-    closePreviewModal();
-    closeDetailModal();
-  }
+  if (!isIndex) closePreviewModal();
 }
 
 function openPreviewModal() {
@@ -95,21 +90,6 @@ function openPreviewModal() {
 
 function closePreviewModal() {
   document.body.classList.remove("preview-open");
-}
-
-function openDetailModal() {
-  const card = getSelectedCard();
-  if (!card || !detailModal || !detailContent) return;
-  detailContent.innerHTML = detailHTML(card);
-  detailModal.classList.add("is-open");
-  detailModal.setAttribute("aria-hidden", "false");
-  document.body.classList.add("detail-open");
-}
-
-function closeDetailModal() {
-  detailModal?.classList.remove("is-open");
-  detailModal?.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("detail-open");
 }
 
 function titleCaseAbility(value) {
@@ -145,6 +125,10 @@ function getWeatherName(card) {
 function getWeatherMultiplier(card) {
   const mult = Number(card?.statMult || 1);
   return Number.isFinite(mult) && mult > 0 ? mult : 1;
+}
+
+function getBorderDefs() {
+  return state.data.meta?.variants || [];
 }
 
 function getImageCandidates(card) {
@@ -226,24 +210,45 @@ function getSelectedCard() {
   return state.cards.find((card) => card.id === state.selectedId) || getVisibleCards()[0] || state.cards[0] || null;
 }
 
-function selectedBorderNames() {
-  const knownNames = (state.data.meta?.variants || []).map((border) => border.name);
+function orderBorderNames(names) {
+  const knownNames = getBorderDefs().map((border) => border.name);
   const orderedNames = [...new Set([...BORDER_NAME_ORDER, ...knownNames])];
-  const selected = orderedNames.filter((name) => state.selectedBorders.has(name));
-  const extra = [...state.selectedBorders].filter((name) => !selected.includes(name));
+  const selected = orderedNames.filter((name) => names.has(name));
+  const extra = [...names].filter((name) => !selected.includes(name));
   return [...selected, ...extra];
 }
 
-function selectedBorderMultiplier() {
-  return (state.data.meta?.variants || []).reduce((mult, border) => {
-    if (!state.selectedBorders.has(border.name)) return mult;
+function selectedBorderNames() {
+  return orderBorderNames(state.selectedBorders);
+}
+
+function borderMultiplierFromNames(names) {
+  return getBorderDefs().reduce((mult, border) => {
+    if (!names.has(border.name)) return mult;
     return mult * Number(border.chance || 1);
   }, 1);
 }
 
-function borderColorList() {
-  const borders = state.data.meta?.variants || [];
-  const colors = selectedBorderNames().map((name) => borders.find((border) => border.name === name)?.color || "#d8b24e");
+function selectedBorderMultiplier() {
+  return borderMultiplierFromNames(state.selectedBorders);
+}
+
+function getCompareBorderSet(id) {
+  if (!state.compareBorders.has(id)) state.compareBorders.set(id, new Set());
+  return state.compareBorders.get(id);
+}
+
+function compareBorderNames(id) {
+  return orderBorderNames(getCompareBorderSet(id));
+}
+
+function compareBorderMultiplier(id) {
+  return borderMultiplierFromNames(getCompareBorderSet(id));
+}
+
+function borderColorList(names = state.selectedBorders) {
+  const borders = getBorderDefs();
+  const colors = orderBorderNames(names).map((name) => borders.find((border) => border.name === name)?.color || "#d8b24e");
   if (!colors.length) return "";
   if (colors.length === 1) return `${colors[0]}, ${colors[0]}, ${colors[0]}`;
   return `${colors.join(", ")}, ${colors[0]}`;
@@ -254,8 +259,7 @@ function adjustedOdds(card, includeBorders = true) {
   return Number(card.odds) * (includeBorders ? selectedBorderMultiplier() : 1);
 }
 
-function cardStats(card, includeBorders = true) {
-  const odds = adjustedOdds(card, includeBorders);
+function statsFromOdds(card, odds) {
   if (!odds) return { hp: 0, atk: 0, odds: 0 };
   const rawHP = Math.floor(Math.pow(2, Math.log10(odds)) * 20);
   const rawATK = Math.floor(rawHP / 3);
@@ -266,6 +270,16 @@ function cardStats(card, includeBorders = true) {
     odds,
     weatherMult
   };
+}
+
+function cardStats(card, includeBorders = true) {
+  const odds = adjustedOdds(card, includeBorders);
+  return statsFromOdds(card, odds);
+}
+
+function compareStats(card) {
+  const odds = Number(card?.odds || 0) * compareBorderMultiplier(card.id);
+  return statsFromOdds(card, odds);
 }
 
 function setBorderVars(element) {
@@ -279,7 +293,7 @@ function renderStats() {
   const counts = state.data.meta?.counts || {};
   document.querySelector("#totalCards").textContent = state.cards.length || counts.cards || 0;
   document.querySelector("#totalWeather").textContent = state.cards.filter((card) => card.weather).length;
-  document.querySelector("#totalVariants").textContent = state.data.meta?.variants?.length ?? 0;
+  document.querySelector("#totalVariants").textContent = getBorderDefs().length;
 }
 
 function renderWeatherFilters() {
@@ -311,16 +325,44 @@ function cardTileHTML(card) {
   `;
 }
 
+function compareBorderControlsHTML(card) {
+  const activeSet = getCompareBorderSet(card.id);
+  const baseActive = activeSet.size === 0;
+  const borderButtons = getBorderDefs().map((border) => {
+    const active = activeSet.has(border.name);
+    return `
+      <button class="compare-border-button ${active ? "is-active" : ""}" type="button" data-compare-border-card="${escapeHTML(card.id)}" data-compare-border="${escapeHTML(border.name)}" style="--chip-color:${escapeHTML(border.color || "#d8b24e")}">
+        ${escapeHTML(border.name)}
+      </button>
+    `;
+  }).join("");
+
+  return `
+    <div class="compare-border-controls">
+      <span>Borders</span>
+      <div class="compare-border-buttons">
+        <button class="compare-border-button ${baseActive ? "is-active" : ""}" type="button" data-compare-border-card="${escapeHTML(card.id)}" data-compare-border="${BASE_COMPARE_BORDER}">Base</button>
+        ${borderButtons}
+      </div>
+    </div>
+  `;
+}
+
 function compareCardHTML(card) {
-  const stats = cardStats(card, false);
+  const stats = compareStats(card);
+  const borderNames = compareBorderNames(card.id);
+  const displayName = borderNames.length ? `${borderNames.join(" ")} ${card.name}` : card.name;
+  const currentOdds = Number(card.odds || 0) * compareBorderMultiplier(card.id);
+
   return `
     <article class="compare-card" style="--card-accent:${escapeHTML(cardAccent(card))}">
       <button class="compare-remove" type="button" data-compare-remove="${escapeHTML(card.id)}" aria-label="Remove ${escapeHTML(card.name)} from compare">×</button>
-      <h3>${escapeHTML(card.name)}</h3>
+      <h3>${escapeHTML(displayName)}</h3>
+      ${compareBorderControlsHTML(card)}
       <dl>
         <div><dt>HP</dt><dd>${escapeHTML(formatNumber(stats.hp))}</dd></div>
         <div><dt>ATK</dt><dd>${escapeHTML(formatNumber(stats.atk))}</dd></div>
-        <div><dt>Odds</dt><dd>${escapeHTML(card.oddsLabel || formatOdds(card.odds))}</dd></div>
+        <div><dt>Odds</dt><dd>${escapeHTML(formatOdds(currentOdds))}</dd></div>
         <div><dt>Ability</dt><dd>${escapeHTML(titleCaseAbility(card.ability || card.abilityType))}</dd></div>
         <div><dt>Source</dt><dd>${escapeHTML(card.weather || card.source || "Base")}</dd></div>
       </dl>
@@ -335,9 +377,11 @@ function renderCompareTray() {
     .filter(Boolean);
 
   compareTray.hidden = comparedCards.length === 0 || state.activeSection !== "index";
-  clearCompareButton.hidden = comparedCards.length === 0;
-  compareModeButton.classList.toggle("is-active", state.compareMode);
-  compareModeButton.textContent = state.compareMode ? `Comparing (${comparedCards.length}/${MAX_COMPARE_CARDS})` : "Compare cards";
+  if (clearCompareButton) clearCompareButton.hidden = comparedCards.length === 0;
+  if (compareModeButton) {
+    compareModeButton.classList.toggle("is-active", state.compareMode);
+    compareModeButton.textContent = state.compareMode ? `Comparing (${comparedCards.length}/${MAX_COMPARE_CARDS})` : "Compare cards";
+  }
 
   if (!comparedCards.length) {
     compareTray.innerHTML = "";
@@ -351,36 +395,6 @@ function renderCompareTray() {
     </div>
     <div class="compare-grid">
       ${comparedCards.map(compareCardHTML).join("")}
-    </div>
-  `;
-}
-
-function detailHTML(card) {
-  const selected = card.id === state.selectedId;
-  const stats = cardStats(card, selected);
-  const baseStats = cardStats(card, false);
-  const currentOdds = selected ? adjustedOdds(card, true) : Number(card.odds || 0);
-  const borderText = selectedBorderNames().length && selected ? selectedBorderNames().join(" + ") : "Base";
-
-  return `
-    <div class="detail-layout">
-      <div class="detail-art card-image-frame" aria-hidden="true">${cardImageHTML(card)}</div>
-      <div class="detail-main">
-        <p class="eyebrow">Card Details</p>
-        <h2>${escapeHTML(selectedBorderNames().length && selected ? `${selectedBorderNames().join(" ")} ${card.name}` : card.name)}</h2>
-        <p>${escapeHTML(card.abilityDescription || "—")}</p>
-        <dl class="detail-stats">
-          <div><dt>HP</dt><dd>${escapeHTML(formatNumber(stats.hp))}</dd></div>
-          <div><dt>ATK</dt><dd>${escapeHTML(formatNumber(stats.atk))}</dd></div>
-          <div><dt>Base HP</dt><dd>${escapeHTML(formatNumber(baseStats.hp))}</dd></div>
-          <div><dt>Base ATK</dt><dd>${escapeHTML(formatNumber(baseStats.atk))}</dd></div>
-          <div><dt>Base Odds</dt><dd>${escapeHTML(card.oddsLabel || formatOdds(card.odds))}</dd></div>
-          <div><dt>Current Odds</dt><dd>${escapeHTML(formatOdds(currentOdds))}</dd></div>
-          <div><dt>Borders</dt><dd>${escapeHTML(borderText)}</dd></div>
-          <div><dt>Ability</dt><dd>${escapeHTML(titleCaseAbility(card.ability || card.abilityType))}</dd></div>
-          <div><dt>Source</dt><dd>${escapeHTML(card.weather || card.source || "Base")}</dd></div>
-        </dl>
-      </div>
     </div>
   `;
 }
@@ -415,7 +429,7 @@ function renderCurrentSection() {
 }
 
 function renderBorderControls() {
-  const borders = state.data.meta?.variants || [];
+  const borders = getBorderDefs();
   if (!borders.length) {
     modifierControls.innerHTML = `<span class="muted-small">No border data found.</span>`;
     return;
@@ -445,7 +459,6 @@ function updatePreview() {
 
   const selectedNames = selectedBorderNames();
   const displayName = selectedNames.length ? `${selectedNames.join(" ")} ${card.name}` : card.name;
-  const baseStats = cardStats(card, false);
   const currentStats = cardStats(card, true);
   const weatherText = getWeatherMultiplier(card) !== 1 ? ` • ${getWeatherMultiplier(card)}x stats` : "";
 
@@ -460,10 +473,6 @@ function updatePreview() {
   previewAbility.textContent = titleCaseAbility(card.ability || card.abilityType);
   previewSource.textContent = (card.weather ? card.weather : card.source || "Base") + weatherText;
   renderBorderControls();
-
-  if (document.body.classList.contains("detail-open") && detailContent) {
-    detailContent.innerHTML = detailHTML(card);
-  }
 }
 
 function selectItem(id, shouldOpenPreview = true) {
@@ -478,15 +487,30 @@ function selectItem(id, shouldOpenPreview = true) {
 function toggleCompareCard(id) {
   if (state.compareIds.has(id)) {
     state.compareIds.delete(id);
+    state.compareBorders.delete(id);
   } else {
     if (state.compareIds.size >= MAX_COMPARE_CARDS) return;
     state.compareIds.add(id);
+    getCompareBorderSet(id);
   }
   renderIndex();
 }
 
+function toggleCompareBorder(id, borderName) {
+  const set = getCompareBorderSet(id);
+  if (borderName === BASE_COMPARE_BORDER) {
+    set.clear();
+  } else if (set.has(borderName)) {
+    set.delete(borderName);
+  } else {
+    set.add(borderName);
+  }
+  renderCompareTray();
+}
+
 function clearCompare() {
   state.compareIds.clear();
+  state.compareBorders.clear();
   state.compareMode = false;
   renderIndex();
 }
@@ -495,7 +519,6 @@ function setActiveSection(section) {
   state.activeSection = section;
   state.selectedId = null;
   closePreviewModal();
-  closeDetailModal();
   document.querySelectorAll(".rail-link").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.section === section);
   });
@@ -522,9 +545,16 @@ function wireEvents() {
   clearCompareButton?.addEventListener("click", clearCompare);
 
   compareTray?.addEventListener("click", (event) => {
+    const borderButton = event.target.closest("[data-compare-border-card]");
+    if (borderButton) {
+      toggleCompareBorder(borderButton.dataset.compareBorderCard, borderButton.dataset.compareBorder);
+      return;
+    }
+
     const removeButton = event.target.closest("[data-compare-remove]");
     if (!removeButton) return;
     state.compareIds.delete(removeButton.dataset.compareRemove);
+    state.compareBorders.delete(removeButton.dataset.compareRemove);
     renderIndex();
   });
 
@@ -562,11 +592,6 @@ function wireEvents() {
   });
 
   previewClose?.addEventListener("click", closePreviewModal);
-  viewDetailsButton?.addEventListener("click", openDetailModal);
-  detailClose?.addEventListener("click", closeDetailModal);
-  detailModal?.addEventListener("click", (event) => {
-    if (event.target === detailModal) closeDetailModal();
-  });
 
   modifierControls.addEventListener("click", (event) => {
     const button = event.target.closest("[data-modifier]");
@@ -595,10 +620,7 @@ function wireEvents() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closePreviewModal();
-      closeDetailModal();
-    }
+    if (event.key === "Escape") closePreviewModal();
   });
 }
 
