@@ -23,6 +23,36 @@
   object-position: center center;
 }
 
+.preview-card {
+  top: 14px !important;
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--gold), transparent 40%) rgba(8, 8, 12, 0.55);
+}
+
+.preview-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.preview-card::-webkit-scrollbar-track {
+  background: rgba(8, 8, 12, 0.55);
+  border-radius: 999px;
+}
+
+.preview-card::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--gold), transparent 40%);
+  border-radius: 999px;
+}
+
+@media (max-width: 1220px) {
+  .preview-card {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 @media (max-width: 760px) {
   .card-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
