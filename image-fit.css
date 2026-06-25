@@ -23,14 +23,22 @@
   object-position: center center;
 }
 
+.preview-slot-placeholder {
+  display: none;
+}
+
 @media (min-width: 1221px) {
-  body.layout-floating .preview-area {
+  body.layout-floating .preview-slot-placeholder.is-active {
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  body.layout-floating .preview-area.is-js-fixed {
     position: fixed !important;
     top: 18px !important;
-    right: max(18px, calc((100vw - 1480px) / 2 + 32px));
-    width: clamp(300px, 22vw, 370px);
-    max-height: calc(100vh - 36px);
     z-index: 80;
+    max-height: calc(100vh - 36px);
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
@@ -38,23 +46,23 @@
     filter: drop-shadow(0 28px 70px rgba(0, 0, 0, 0.55));
   }
 
-  body.layout-floating .preview-card {
+  body.layout-floating .preview-area.is-js-fixed .preview-card {
     position: relative !important;
     top: auto !important;
     max-height: none !important;
     overflow: visible !important;
   }
 
-  body.layout-floating .preview-area::-webkit-scrollbar {
+  body.layout-floating .preview-area.is-js-fixed::-webkit-scrollbar {
     width: 8px;
   }
 
-  body.layout-floating .preview-area::-webkit-scrollbar-track {
+  body.layout-floating .preview-area.is-js-fixed::-webkit-scrollbar-track {
     background: rgba(8, 8, 12, 0.55);
     border-radius: 999px;
   }
 
-  body.layout-floating .preview-area::-webkit-scrollbar-thumb {
+  body.layout-floating .preview-area.is-js-fixed::-webkit-scrollbar-thumb {
     background: color-mix(in srgb, var(--gold), transparent 40%);
     border-radius: 999px;
   }
