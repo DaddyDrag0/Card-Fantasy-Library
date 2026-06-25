@@ -1,0 +1,30 @@
+.card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+}
+
+.card-tile {
+  min-height: auto;
+}
+
+.card-art {
+  height: auto !important;
+  aspect-ratio: 41 / 55;
+  border-radius: 14px;
+}
+
+.preview-art {
+  height: auto !important;
+  aspect-ratio: 41 / 55;
+}
+
+.card-art img,
+.preview-art img {
+  object-fit: cover;
+  object-position: center center;
+}
+
+@media (max-width: 760px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
