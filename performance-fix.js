@@ -37,10 +37,16 @@
     if (statLines[2]) statLines[2].textContent = `Source: ${getWeatherName(card)}`;
   }
 
-  selectItem = function optimizedSelectItem(id, shouldOpenPreview = true) {
+  function optimizedSelectItem(id, shouldOpenPreview = true) {
     const previousId = state.selectedId;
     const card = getCardById(id) || getVisibleCards()[0] || state.cards[0];
     if (!card) return;
+
+    if (previousId === card.id) {
+      updatePreview();
+      if (shouldOpenPreview) openPreviewModal();
+      return;
+    }
 
     state.selectedId = card.id;
     updatePreview();
@@ -48,5 +54,19 @@
     syncCardTileState(card.id);
 
     if (shouldOpenPreview) openPreviewModal();
-  };
+  }
+
+  selectItem = optimizedSelectItem;
+
+  cardGrid?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-id]");
+    if (!button || !cardGrid.contains(button)) return;
+    if (state.compareMode) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    optimizedSelectItem(button.dataset.id);
+  }, true);
+
+  window.__cardSelectionPerformanceFix = true;
 })();
